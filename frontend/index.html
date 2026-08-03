@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premiere Properties Subtitle Studio v1.0.0</title>
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Modular CSS Stylesheets -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/timeline.css">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- TOP NAVBAR -->
+        <header class="top-navbar">
+            <div class="brand-title">
+                <div class="logo-icon">🎬</div>
+                <h1>Premiere Properties <span>Subtitle Studio</span></h1>
+                <span class="version-badge" id="appVersionBadge">v1.0.0</span>
+            </div>
+            
+            <div class="video-input-group">
+                <div class="input-field">
+                    <label for="videoPathInput">Video Path / URL:</label>
+                    <input type="text" id="videoPathInput" placeholder="e.g. /content/my_video.mp4 or Drive Link">
+                </div>
+                <button id="btnLoadVideo" class="btn btn-secondary">Load Video</button>
+                <button id="btnDriveDownload" class="btn btn-outline">📥 Google Drive Link</button>
+            </div>
+
+            <div class="header-actions">
+                <button id="btnExportRender" class="btn btn-primary btn-glow">🚀 Export Video & XML</button>
+            </div>
+        </header>
+
+        <!-- MAIN 3-COLUMN LAYOUT SYSTEM -->
+        <main class="workspace-grid">
+            
+            <!-- LEFT COLUMN: CAPTIONS MANAGER -->
+            <section class="panel captions-panel">
+                <div class="panel-header">
+                    <h2><span class="panel-icon">📝</span> Captions & Text</h2>
+                    <div class="panel-actions">
+                        <button id="btnImportSrt" class="btn-sm">Import .SRT</button>
+                        <input type="file" id="srtFileInput" accept=".srt" style="display:none;">
+                        <button id="btnAddCaption" class="btn-sm btn-accent">+ Add Line</button>
+                    </div>
+                </div>
+                <div class="captions-list-container" id="captionsList">
+                    <!-- Dynamic Caption Cards injected here by captions.js -->
+                </div>
+            </section>
+
+            <!-- MIDDLE COLUMN: VIDEO PREVIEW CANVAS & TIMELINE TRACK -->
+            <section class="panel preview-panel">
+                <div class="panel-header">
+                    <h2><span class="panel-icon">👁️</span> Program Monitor</h2>
+                    <div class="timecode-display" id="timecodeDisplay">00:00:00:00</div>
+                </div>
+
+                <!-- VIDEO PLAYER CONTAINER WITH LIVE OVERLAY -->
+                <div class="video-container" id="videoContainer">
+                    <video id="mainVideoPlayer" preload="auto" crossorigin="anonymous"></video>
+
+                    <!-- INTERACTIVE LIVE SUBTITLE CANVAS OVERLAY -->
+                    <div class="subtitle-overlay" id="subtitleOverlay">
+                        <div class="subtitle-text-box" id="subtitleTextBox" contenteditable="false">
+                            Double click to edit subtitle text...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIDEO TRANSPORT CONTROLS -->
+                <div class="player-controls">
+                    <button id="btnPlayPause" class="btn-ctrl">▶</button>
+                    <button id="btnStepBack" class="btn-ctrl">⏪ -5s</button>
+                    <button id="btnStepForward" class="btn-ctrl">⏩ +5s</button>
+                    <div class="volume-box">
+                        <span>🔊</span>
+                        <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1">
+                    </div>
+                </div>
+
+                <!-- DEDICATED INTERACTIVE TIMELINE TRACK -->
+                <div class="timeline-container" id="timelineContainer">
+                    <div class="timeline-toolbar">
+                        <span class="toolbar-label">Timeline Tracks</span>
+                        <div class="zoom-controls">
+                            <span>🔍 Zoom:</span>
+                            <input type="range" id="timelineZoom" min="100" max="1000" value="100">
+                            <span id="zoomVal">100%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-track-area" id="timelineTrackArea">
+                        <div class="time-ruler" id="timeRuler"></div>
+                        <div class="track-row subtitle-track" id="subtitleTrack">
+                            <!-- Dynamic Draggable Clips injected by timeline.js -->
+                        </div>
+                        <div class="playhead" id="timelinePlayhead">
+                            <div class="playhead-head"></div>
+                            <div class="playhead-line"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RIGHT COLUMN: ESSENTIAL GRAPHICS PROPERTIES & CONSOLE -->
+            <section class="panel properties-panel">
+                <div class="panel-header">
+                    <h2><span class="panel-icon">🎨</span> Essential Graphics</h2>
+                </div>
+
+                <div class="properties-scroll-container">
+                    
+                    <!-- TEXT STYLING BLOCK -->
+                    <fieldset class="prop-group">
+                        <legend>Text Format</legend>
+
+                        <div class="form-row">
+                            <label>Font Family:</label>
+                            <div class="font-select-wrapper">
+                                <select id="fontFamilySelect" class="input-select">
+                                    <option value="Montserrat">Montserrat</option>
+                                    <option value="Poppins">Poppins</option>
+                                    <option value="Arial">Arial</option>
+                                </select>
+                                <button id="btnUploadFont" class="btn-sm btn-icon" title="Upload Custom Font">⬆️</button>
+                                <input type="file" id="fontFileInput" accept=".ttf,.otf" style="display:none;">
+                            </div>
+                        </div>
+
+                        <div class="form-row split-2">
+                            <div>
+                                <label>Size (px):</label>
+                                <input type="number" id="fontSizeInput" value="48" min="10" max="200">
+                            </div>
+                            <div>
+                                <label>Tracking:</label>
+                                <input type="number" id="trackingInput" value="0" min="-50" max="100">
+                            </div>
+                        </div>
+
+                        <div class="form-row split-2">
+                            <div>
+                                <label>Leading (Line Ht):</label>
+                                <input type="number" id="leadingInput" value="1.2" step="0.1" min="0.5" max="3">
+                            </div>
+                            <div>
+                                <label>Primary Color:</label>
+                                <div class="color-picker-box">
+                                    <input type="color" id="primaryColorInput" value="#FFFFFF">
+                                    <input type="range" id="primaryOpacityInput" min="0" max="1" step="0.05" value="1" title="Opacity">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 7 FAUX FORMATTING BUTTONS -->
+                        <div class="faux-buttons-grid">
+                            <button class="btn-faux" id="btnFauxBold" title="Bold"><b>B</b></button>
+                            <button class="btn-faux" id="btnFauxItalic" title="Italic"><i>I</i></button>
+                            <button class="btn-faux" id="btnFauxAllCaps" title="All Caps">TT</button>
+                            <button class="btn-faux" id="btnFauxSmallCaps" title="Small Caps">Tt</button>
+                            <button class="btn-faux" id="btnFauxUnderline" title="Underline"><u>U</u></button>
+                            <button class="btn-faux" id="btnFauxStrikethrough" title="Strikethrough"><s>S</s></button>
+                            <button class="btn-faux" id="btnFauxSubscript" title="Subscript / Superscript">X₂</button>
+                        </div>
+                    </fieldset>
+
+                    <!-- ALIGNMENT MATRIX (3x3 GRID) -->
+                    <fieldset class="prop-group">
+                        <legend>Alignment & Position</legend>
+                        <div class="align-matrix-container">
+                            <label>Canvas Alignment:</label>
+                            <div class="align-grid-3x3">
+                                <button class="btn-align" data-align="top-left" title="Top Left">↖</button>
+                                <button class="btn-align" data-align="top-center" title="Top Center">↑</button>
+                                <button class="btn-align" data-align="top-right" title="Top Right">↗</button>
+                                <button class="btn-align" data-align="middle-left" title="Middle Left">←</button>
+                                <button class="btn-align" data-align="center" title="Center">┼</button>
+                                <button class="btn-align" data-align="middle-right" title="Middle Right">→</button>
+                                <button class="btn-align" data-align="bottom-left" title="Bottom Left">↙</button>
+                                <button class="btn-align active" data-align="bottom-center" title="Bottom Center">↓</button>
+                                <button class="btn-align" data-align="bottom-right" title="Bottom Right">↘</button>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- STROKE & BORDER -->
+                    <fieldset class="prop-group">
+                        <legend>Stroke & Edge</legend>
+                        <div class="form-row split-2">
+                            <div>
+                                <label>Stroke Width:</label>
+                                <input type="number" id="strokeWidthInput" value="2" min="0" max="20">
+                            </div>
+                            <div>
+                                <label>Stroke Color:</label>
+                                <input type="color" id="strokeColorInput" value="#000000">
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- BACKGROUND BOX -->
+                    <fieldset class="prop-group">
+                        <legend>Background Box</legend>
+                        <div class="form-row split-3">
+                            <div>
+                                <label>Padding:</label>
+                                <input type="number" id="bgPaddingInput" value="10" min="0" max="100">
+                            </div>
+                            <div>
+                                <label>Bg Color:</label>
+                                <input type="color" id="bgColorInput" value="#000000">
+                            </div>
+                            <div>
+                                <label>Opacity:</label>
+                                <input type="range" id="bgOpacityInput" min="0" max="1" step="0.05" value="0">
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- DROP SHADOW -->
+                    <fieldset class="prop-group">
+                        <legend>Drop Shadow</legend>
+                        <div class="form-row split-2">
+                            <div>
+                                <label>Shadow Color:</label>
+                                <input type="color" id="shadowColorInput" value="#000000">
+                            </div>
+                            <div>
+                                <label>Blur Radius:</label>
+                                <input type="number" id="shadowBlurInput" value="4" min="0" max="50">
+                            </div>
+                        </div>
+                        <div class="form-row split-2">
+                            <div>
+                                <label>Offset X:</label>
+                                <input type="number" id="shadowOffsetXInput" value="2" min="-50" max="50">
+                            </div>
+                            <div>
+                                <label>Offset Y:</label>
+                                <input type="number" id="shadowOffsetYInput" value="2" min="-50" max="50">
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- DIAGNOSTIC EXECUTION CONSOLE -->
+                    <fieldset class="prop-group console-group">
+                        <legend>Execution Console</legend>
+                        <div class="console-header">
+                            <span>Logs & Output</span>
+                            <div>
+                                <button id="btnClearConsole" class="btn-xs">Clear</button>
+                                <button id="btnCopyConsole" class="btn-xs">Copy</button>
+                            </div>
+                        </div>
+                        <div class="console-box" id="execConsoleBox">
+                            <div class="console-line info">[System initialized] Premiere Properties Subtitle Studio Ready.</div>
+                        </div>
+                    </fieldset>
+
+                </div>
+            </section>
+
+        </main>
+
+        <!-- RENDER PROGRESS MODAL DIALOG -->
+        <div class="modal-overlay" id="renderModal" style="display: none;">
+            <div class="modal-card">
+                <h3>🚀 Exporting Video & Subtitles...</h3>
+                <div class="progress-bar-track">
+                    <div class="progress-bar-fill" id="renderProgressFill" style="width: 0%;"></div>
+                </div>
+                <div class="modal-status-text" id="renderStatusText">Initializing render engines...</div>
+                <div class="modal-details-row">
+                    <span id="renderStageText">Stage 1/6</span>
+                    <span id="renderSpeedText">0x</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODULAR JS SCRIPTS -->
+    <script src="js/console.js"></script>
+    <script src="js/captions.js"></script>
+    <script src="js/properties.js"></script>
+    <script src="js/timeline.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

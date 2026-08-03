@@ -1,0 +1,6 @@
+fastapi>=0.100.0
+uvicorn>=0.22.0
+pysrt>=1.1.2
+fontTools>=4.40.0
+gdown>=4.7.1
+python-multipart>=0.0.6
