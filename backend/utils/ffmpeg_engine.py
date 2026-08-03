@@ -5,7 +5,7 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from config import OUTPUT_DIR, TEMP_DIR, CUSTOM_FONTS_DIR, update_render_progress, reset_render_progress
+from config import OUTPUT_DIR, TEMP_DIR, CUSTOM_FONTS_DIR, SYSTEM_FONTS_DIR, update_render_progress, reset_render_progress
 
 def escape_ffmpeg_filter_path(path_input: str or Path) -> str:
     """
@@ -13,11 +13,8 @@ def escape_ffmpeg_filter_path(path_input: str or Path) -> str:
     Converts backslashes to forward slashes, escapes colons (C:\ -> C\:) and special characters.
     """
     p_str = str(Path(path_input).resolve()).replace("\\", "/")
-    # Escape colons (crucial for Windows drive letters like C:)
     p_str = p_str.replace(":", "\\:")
-    # Escape single quotes
     p_str = p_str.replace("'", "'\\''")
-    # Escape brackets
     p_str = p_str.replace("[", "\\[").replace("]", "\\]")
     return p_str
 
@@ -145,7 +142,6 @@ def generate_premiere_xml(video_path: str or Path, captions: list, output_xml_pa
         ET.SubElement(cap_clip, "end").text = str(end_frame)
         ET.SubElement(cap_clip, "duration").text = str(dur)
         
-        # Add marker metadata
         marker = ET.SubElement(cap_clip, "marker")
         ET.SubElement(marker, "name").text = "Subtitle Text"
         ET.SubElement(marker, "comment").text = cap.get("text", "")
@@ -159,43 +155,44 @@ def generate_premiere_xml(video_path: str or Path, captions: list, output_xml_pa
 def render_ass_video(video_path: str or Path, ass_path: str or Path, output_path: Path, duration: float) -> bool:
     """
     Executes the 6-stage fallback ASS subtitle FFmpeg render pipeline:
-      Stage 1: GPU NVENC Fast + Sys Fonts + Copy Audio
-      Stage 2: GPU NVENC Fast + Temp Fonts + Copy Audio
-      Stage 3: CPU libx264 Ultrafast + Sys Fonts + Copy Audio
-      Stage 4: CPU libx264 Ultrafast + Temp Fonts + Copy Audio
-      Stage 5: CPU libx264 Ultrafast + Sys Fonts + AAC Audio
-      Stage 6: CPU libx264 Ultrafast + Temp Fonts + AAC Audio
+      Stage 1: GPU NVENC Fast + Custom Fonts Dir + Copy Audio
+      Stage 2: GPU NVENC Fast + System Fonts Dir + Copy Audio
+      Stage 3: CPU libx264 Ultrafast + Custom Fonts Dir + Copy Audio
+      Stage 4: CPU libx264 Ultrafast + System Fonts Dir + Copy Audio
+      Stage 5: CPU libx264 Ultrafast + Custom Fonts Dir + AAC Audio
+      Stage 6: CPU libx264 Ultrafast + System Fonts Dir + AAC Audio
     """
     reset_render_progress()
 
     clean_video_path = str(Path(video_path).resolve())
     escaped_ass = escape_ffmpeg_filter_path(ass_path)
-    escaped_fonts_dir = escape_ffmpeg_filter_path(CUSTOM_FONTS_DIR)
+    escaped_custom_fonts = escape_ffmpeg_filter_path(CUSTOM_FONTS_DIR)
+    escaped_sys_fonts = escape_ffmpeg_filter_path(SYSTEM_FONTS_DIR)
 
     stages = [
         {
-            "name": "Stage 1: GPU NVENC + System Fonts + Copy Audio",
-            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-vf", f"subtitles='{escaped_ass}'", "-c:a", "copy"]
+            "name": "Stage 1: GPU NVENC + Custom Fonts Dir + Copy Audio",
+            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
         },
         {
-            "name": "Stage 2: GPU NVENC + Custom Fonts Dir + Copy Audio",
-            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_fonts_dir}'", "-c:a", "copy"]
+            "name": "Stage 2: GPU NVENC + System Fonts Dir + Copy Audio",
+            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_sys_fonts}'", "-c:a", "copy"]
         },
         {
-            "name": "Stage 3: CPU libx264 Ultrafast + System Fonts + Copy Audio",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}'", "-c:a", "copy"]
+            "name": "Stage 3: CPU libx264 Ultrafast + Custom Fonts Dir + Copy Audio",
+            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
         },
         {
-            "name": "Stage 4: CPU libx264 Ultrafast + Custom Fonts Dir + Copy Audio",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_fonts_dir}'", "-c:a", "copy"]
+            "name": "Stage 4: CPU libx264 Ultrafast + System Fonts Dir + Copy Audio",
+            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_sys_fonts}'", "-c:a", "copy"]
         },
         {
-            "name": "Stage 5: CPU libx264 Ultrafast + System Fonts + AAC Re-encode",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}'", "-c:a", "aac", "-b:a", "192k"]
+            "name": "Stage 5: CPU libx264 Ultrafast + Custom Fonts Dir + AAC Re-encode",
+            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
         },
         {
-            "name": "Stage 6: CPU libx264 Ultrafast + Custom Fonts Dir + AAC Re-encode",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_fonts_dir}'", "-c:a", "aac", "-b:a", "192k"]
+            "name": "Stage 6: CPU libx264 Ultrafast + System Fonts Dir + AAC Re-encode",
+            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_sys_fonts}'", "-c:a", "aac", "-b:a", "192k"]
         }
     ]
 
@@ -223,7 +220,6 @@ def render_ass_video(video_path: str or Path, ass_path: str or Path, output_path
         try:
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             
-            # Progress tracking loop
             while process.poll() is None:
                 time.sleep(0.3)
                 if progress_file.exists():

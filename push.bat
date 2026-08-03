@@ -1,7 +1,7 @@
 @echo off
 echo Staging and pushing changes to GitHub...
 git add .
-git commit -m "v6.0.0 Premiere Pro 2024 Exact Mathematical Parity: sequence coordinate transform, font size ratio scaling, single-line text display"
+git commit -m "v7.1.0 Senior FFmpeg Subtitle Engine Fix: PlayResX/PlayResY canvas lock, Alignment 5 center-origin pos(abs_x, abs_y), and mandatory fontsdir passing"
 git push origin main
 echo Done!
 pause
