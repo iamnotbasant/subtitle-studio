@@ -1,24 +1,25 @@
 /* Premiere Properties Subtitle Studio - Hardware Accelerated Timeline Stylesheet */
 
 .timeline-container {
-    height: 135px;
+    height: 130px;
     background: var(--bg-panel);
     border-top: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     user-select: none;
+    flex-shrink: 0;
 }
 
 .timeline-toolbar {
-    height: 26px;
+    height: 24px;
     background: var(--bg-card);
     border-bottom: 1px solid var(--border-color);
-    padding: 0 12px;
+    padding: 0 10px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-muted);
 }
 
@@ -29,13 +30,13 @@
 }
 
 .zoom-controls input[type="range"] {
-    width: 80px;
+    width: 75px;
 }
 
 .timeline-track-area {
     position: relative;
     flex: 1;
-    background: #0d0d0f;
+    background: #09090b;
     overflow-x: auto;
     overflow-y: hidden;
     transform: translate3d(0, 0, 0);
@@ -43,8 +44,8 @@
 
 /* TIME RULER */
 .time-ruler {
-    height: 20px;
-    background: #141417;
+    height: 18px;
+    background: #121215;
     border-bottom: 1px solid var(--border-color);
     position: absolute;
     top: 0;
@@ -61,13 +62,13 @@
 }
 
 .ruler-tick.major {
-    height: 10px;
+    height: 9px;
     background: var(--text-muted);
 }
 
 .ruler-tick-label {
     position: absolute;
-    top: 2px;
+    top: 1px;
     font-size: 9px;
     font-family: monospace;
     color: var(--text-muted);
@@ -77,33 +78,33 @@
 /* TRACK ROW */
 .track-row {
     position: absolute;
-    top: 22px;
+    top: 20px;
     left: 0;
-    height: 48px;
+    height: 44px;
     min-width: 100%;
 }
 
 .timeline-clip {
     position: absolute;
-    height: 40px;
+    height: 38px;
     background: linear-gradient(135deg, #0a84ff, #0056b3);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
-    top: 4px;
+    top: 3px;
     cursor: grab;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 8px;
+    padding: 0 6px;
     overflow: hidden;
     transform: translate3d(0, 0, 0);
     will-change: transform, left, width;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
 }
 
 .timeline-clip:active {
     cursor: grabbing;
-    box-shadow: 0 0 14px var(--accent-glow);
+    box-shadow: 0 0 12px var(--accent-glow);
 }
 
 .timeline-clip.active {
@@ -112,7 +113,7 @@
 }
 
 .clip-text {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 500;
     color: #fff;
     white-space: nowrap;
@@ -126,7 +127,7 @@
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 7px;
+    width: 6px;
     background: rgba(255, 255, 255, 0.3);
     cursor: ew-resize;
     transition: background 0.15s;
@@ -148,7 +149,7 @@
     border-bottom-right-radius: 4px;
 }
 
-/* PLAYHEAD NEEDLE */
+/* PLAYHEAD NEEDLE - GPU ACCELERATED */
 .playhead {
     position: absolute;
     top: 0;
@@ -158,8 +159,8 @@
     background: var(--accent-green);
     z-index: 10;
     pointer-events: none;
+    will-change: transform;
     transform: translate3d(0, 0, 0);
-    will-change: transform, left;
 }
 
 .playhead-head {
@@ -167,7 +168,7 @@
     top: 0;
     left: -5px;
     width: 12px;
-    height: 12px;
+    height: 10px;
     background: var(--accent-green);
     clip-path: polygon(0 0, 100% 0, 50% 100%);
 }

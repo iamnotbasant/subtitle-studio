@@ -1,5 +1,5 @@
 /**
- * Captions Data State Manager & SRT Parser
+ * Captions Data State Manager, SRT Parser & Zero-Lag DOM Card Renderer
  */
 
 let captionsData = [
@@ -10,7 +10,6 @@ let captionsData = [
 let activeCaptionId = null;
 
 function parseSRTTime(timeStr) {
-    // Format: 00:00:01,500
     const parts = timeStr.trim().replace(',', '.').split(':');
     if (parts.length < 3) return 0;
     const hrs = parseFloat(parts[0]);
@@ -60,6 +59,7 @@ function renderCaptionsList() {
         const card = document.createElement('div');
         card.className = `caption-card ${item.id === activeCaptionId ? 'active' : ''}`;
         card.dataset.id = item.id;
+        card.id = `caption-card-${item.id}`;
 
         card.innerHTML = `
             <div class="card-header-row">
@@ -74,7 +74,6 @@ function renderCaptionsList() {
             <textarea class="caption-text-area" data-id="${item.id}">${item.text}</textarea>
         `;
 
-        // Card seek on click
         card.addEventListener('click', (e) => {
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
                 setActiveCaption(item.id);
@@ -83,7 +82,6 @@ function renderCaptionsList() {
             }
         });
 
-        // Time updates
         const startInput = card.querySelector('.start-time');
         const endInput = card.querySelector('.end-time');
         const textArea = card.querySelector('.caption-text-area');
@@ -107,7 +105,7 @@ function renderCaptionsList() {
 
         textArea.addEventListener('input', (e) => {
             item.text = e.target.value;
-            updateLiveSubtitleOverlay();
+            if (typeof updateLiveSubtitleOverlay === 'function') updateLiveSubtitleOverlay();
             if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
         });
 
@@ -121,9 +119,26 @@ function renderCaptionsList() {
 }
 
 function setActiveCaption(id) {
+    if (activeCaptionId === id) return;
+
+    if (activeCaptionId) {
+        const oldCard = document.getElementById(`caption-card-${activeCaptionId}`);
+        if (oldCard) oldCard.classList.remove('active');
+        const oldClip = document.querySelector(`.timeline-clip[data-id="${activeCaptionId}"]`);
+        if (oldClip) oldClip.classList.remove('active');
+    }
+
     activeCaptionId = id;
-    renderCaptionsList();
-    updateLiveSubtitleOverlay();
+
+    if (activeCaptionId) {
+        const newCard = document.getElementById(`caption-card-${activeCaptionId}`);
+        if (newCard) {
+            newCard.classList.add('active');
+            newCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        const newClip = document.querySelector(`.timeline-clip[data-id="${activeCaptionId}"]`);
+        if (newClip) newClip.classList.add('active');
+    }
 }
 
 function deleteCaptionLine(id) {
@@ -144,6 +159,7 @@ function addCaptionLine() {
         text: "New subtitle text line"
     };
     captionsData.push(newCap);
+    renderCaptionsList();
     setActiveCaption(newCap.id);
     if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
     logExec(`Added new caption line at ${currTime.toFixed(2)}s.`, 'info');

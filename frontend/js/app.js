@@ -1,25 +1,51 @@
 /**
- * Main Application Orchestrator, Aspect Ratio Engine & API Controller
+ * Main Application Orchestrator, Export Options & Rendered Media Gallery Engine (Non-Recursive & Debounced)
  */
 
 let currentLoadedVideoPath = "";
 let renderPollInterval = null;
 
+let cachedActiveCaptionText = null;
+let liveOverlayRafPending = false;
+
 function updateLiveSubtitleOverlay() {
     const video = document.getElementById('mainVideoPlayer');
     const overlay = document.getElementById('subtitleOverlay');
     const textBox = document.getElementById('subtitleTextBox');
-    if (!video || !textBox) return;
+    if (!video || !textBox || !overlay) return;
 
     const currTime = video.currentTime || 0;
     const activeCap = getActiveCaptionForTime(currTime);
 
     if (activeCap) {
-        textBox.innerText = activeCap.text;
-        overlay.style.display = 'flex';
-        setActiveCaption(activeCap.id);
+        if (cachedActiveCaptionText !== activeCap.text) {
+            textBox.innerText = activeCap.text;
+            cachedActiveCaptionText = activeCap.text;
+        }
+        if (overlay.style.display !== 'flex') {
+            overlay.style.display = 'flex';
+        }
+        if (typeof setActiveCaption === 'function') {
+            setActiveCaption(activeCap.id);
+        }
     } else {
-        overlay.style.display = 'none';
+        if (overlay.style.display !== 'none') {
+            overlay.style.display = 'none';
+        }
+        cachedActiveCaptionText = null;
+        if (typeof setActiveCaption === 'function') {
+            setActiveCaption(null);
+        }
+    }
+}
+
+function requestUpdateLiveSubtitleOverlay() {
+    if (!liveOverlayRafPending) {
+        liveOverlayRafPending = true;
+        requestAnimationFrame(() => {
+            updateLiveSubtitleOverlay();
+            liveOverlayRafPending = false;
+        });
     }
 }
 
@@ -122,25 +148,50 @@ async function triggerGoogleDriveDownload() {
     }
 }
 
-async function triggerExport() {
+function openExportOptionsModal() {
     if (!currentLoadedVideoPath) {
         logExec("No video loaded! Please load a video before exporting.", "warn");
         alert("Please load a video file first!");
         return;
     }
+    const modal = document.getElementById('exportOptionsModal');
+    if (modal) modal.style.display = 'flex';
+}
 
-    if (captionsData.length === 0) {
-        logExec("No captions available to render!", "warn");
+function closeExportOptionsModal() {
+    const modal = document.getElementById('exportOptionsModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function triggerExport() {
+    closeExportOptionsModal();
+
+    const customOutputDir = document.getElementById('customOutputDirInput')?.value.trim() || null;
+    const driveExportPath = document.getElementById('driveExportPathInput')?.value.trim() || null;
+    const exportMp4 = document.getElementById('exportMp4Check')?.checked ?? true;
+    const exportSrt = document.getElementById('exportSrtCheck')?.checked ?? true;
+    const exportXml = document.getElementById('exportXmlCheck')?.checked ?? true;
+
+    if (!exportMp4 && !exportSrt && !exportXml) {
+        alert("Please select at least one artifact to export!");
         return;
     }
 
     const payload = {
         video_path: currentLoadedVideoPath,
         captions: captionsData,
-        style: styleState
+        style: styleState,
+        custom_output_dir: customOutputDir,
+        google_drive_export_path: driveExportPath,
+        export_mp4: exportMp4,
+        export_srt: exportSrt,
+        export_xml: exportXml
     };
 
-    logExec("Initiating ASS Render & Premiere XML export pipeline...", "info");
+    logExec("Initiating Render export task...", "info");
+    if (driveExportPath) logExec(`Target Google Drive Path: ${driveExportPath}`, "info");
+    if (customOutputDir) logExec(`Target Output Dir: ${customOutputDir}`, "info");
+
     showRenderModal(true);
 
     try {
@@ -184,8 +235,11 @@ function startProgressPolling() {
 
             if (data.percent >= 100 || data.stage === 'Done') {
                 clearInterval(renderPollInterval);
-                logExec("Export Completed Successfully! MP4, SRT, and Premiere XML created in exports directory.", "success");
-                setTimeout(() => showRenderModal(false), 1500);
+                logExec("Export Completed Successfully!", "success");
+                setTimeout(() => {
+                    showRenderModal(false);
+                    openExportsGalleryModal();
+                }, 1500);
             } else if (data.stage === 'Failed') {
                 clearInterval(renderPollInterval);
                 logExec(`Render Export Failed: ${data.error || data.status}`, "error");
@@ -200,6 +254,84 @@ function startProgressPolling() {
 function showRenderModal(show) {
     const modal = document.getElementById('renderModal');
     if (modal) modal.style.display = show ? 'flex' : 'none';
+}
+
+/* RENDERED VIDEOS GALLERY MANAGER */
+function openExportsGalleryModal() {
+    const modal = document.getElementById('exportsGalleryModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        loadExportsGallery();
+    }
+}
+
+function closeExportsGalleryModal() {
+    const modal = document.getElementById('exportsGalleryModal');
+    const player = document.getElementById('galleryVideoPlayer');
+    if (player) player.pause();
+    if (modal) modal.style.display = 'none';
+}
+
+async function loadExportsGallery() {
+    const galleryList = document.getElementById('galleryList');
+    if (!galleryList) return;
+
+    galleryList.innerHTML = '<div class="console-line info">Loading rendered exports...</div>';
+    try {
+        const res = await fetch('/api/list_exports');
+        const data = await res.json();
+
+        if (!data.exports || data.exports.length === 0) {
+            galleryList.innerHTML = '<div class="console-line warn">No rendered video exports found yet.</div>';
+            return;
+        }
+
+        galleryList.innerHTML = '';
+        data.exports.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'gallery-card';
+
+            const artifactsText = [
+                'MP4',
+                item.srt_exists ? 'SRT' : null,
+                item.xml_exists ? 'XML' : null
+            ].filter(Boolean).join(' | ');
+
+            card.innerHTML = `
+                <div class="gallery-card-info">
+                    <div class="gallery-card-title">${item.filename}</div>
+                    <div class="gallery-card-sub">${item.size_mb} MB • ${item.duration}s • [${artifactsText}]</div>
+                </div>
+                <div class="gallery-card-actions">
+                    <button class="btn-xs play-gallery-btn" data-filename="${item.filename}">▶ Play in Dashboard</button>
+                    <a href="/api/exports/${encodeURIComponent(item.filename)}" download class="btn-xs">⬇️ Download</a>
+                    <button class="btn-xs copy-path-btn" data-path="${item.path}">📋 Copy Path</button>
+                </div>
+            `;
+
+            const playBtn = card.querySelector('.play-gallery-btn');
+            const copyBtn = card.querySelector('.copy-path-btn');
+
+            playBtn.addEventListener('click', () => {
+                const player = document.getElementById('galleryVideoPlayer');
+                if (player) {
+                    player.src = `/api/exports/${encodeURIComponent(item.filename)}`;
+                    player.play();
+                    logExec(`Playing rendered video in gallery player: ${item.filename}`, "info");
+                }
+            });
+
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(item.path);
+                logExec(`Copied file path to clipboard: ${item.path}`, "success");
+            });
+
+            galleryList.appendChild(card);
+        });
+
+    } catch (err) {
+        galleryList.innerHTML = `<div class="console-line error">Failed to load exports: ${err}</div>`;
+    }
 }
 
 function initOnScreenEditing() {
@@ -230,6 +362,10 @@ function initAppListeners() {
     const videoInput = document.getElementById('videoPathInput');
     const btnDriveDownload = document.getElementById('btnDriveDownload');
     const btnExportRender = document.getElementById('btnExportRender');
+    const btnCloseExportOptions = document.getElementById('btnCloseExportOptions');
+    const btnConfirmExport = document.getElementById('btnConfirmExport');
+    const btnOpenGallery = document.getElementById('btnOpenGallery');
+    const btnCloseGallery = document.getElementById('btnCloseGallery');
     const btnImportSrt = document.getElementById('btnImportSrt');
     const srtFileInput = document.getElementById('srtFileInput');
     const btnAddCaption = document.getElementById('btnAddCaption');
@@ -257,7 +393,23 @@ function initAppListeners() {
     }
 
     if (btnExportRender) {
-        btnExportRender.addEventListener('click', triggerExport);
+        btnExportRender.addEventListener('click', openExportOptionsModal);
+    }
+
+    if (btnCloseExportOptions) {
+        btnCloseExportOptions.addEventListener('click', closeExportOptionsModal);
+    }
+
+    if (btnConfirmExport) {
+        btnConfirmExport.addEventListener('click', triggerExport);
+    }
+
+    if (btnOpenGallery) {
+        btnOpenGallery.addEventListener('click', openExportsGalleryModal);
+    }
+
+    if (btnCloseGallery) {
+        btnCloseGallery.addEventListener('click', closeExportsGalleryModal);
     }
 
     if (btnImportSrt && srtFileInput) {
@@ -316,7 +468,7 @@ function initAppListeners() {
 
     if (video) {
         video.addEventListener('timeupdate', () => {
-            updateLiveSubtitleOverlay();
+            requestUpdateLiveSubtitleOverlay();
             if (typeof updatePlayheadPosition === 'function') updatePlayheadPosition();
         });
 

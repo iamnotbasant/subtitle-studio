@@ -1,6 +1,7 @@
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 
@@ -14,6 +15,9 @@ app = FastAPI(
     version=APP_VERSION,
     description="Modular Video Subtitle & Essential Graphics Automation Engine"
 )
+
+# Enable GZip compression (70%+ bandwidth & load time optimization)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Enable CORS for local development and Colab iframe integration
 app.add_middleware(

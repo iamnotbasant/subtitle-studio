@@ -3,16 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premiere Properties Subtitle Studio v1.2.0</title>
+    <title>Premiere Properties Subtitle Studio v1.6.0</title>
 
-    <!-- Apple System Fonts & Inter -->
+    <!-- Optimized Preconnect & Non-blocking Async Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'">
     
     <!-- Modular CSS Stylesheets -->
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/timeline.css">
+
+    <!-- Deferred Non-blocking JS Scripts -->
+    <script src="js/console.js" defer></script>
+    <script src="js/captions.js" defer></script>
+    <script src="js/properties.js" defer></script>
+    <script src="js/timeline.js" defer></script>
+    <script src="js/app.js" defer></script>
 </head>
 <body class="apple-dark-theme">
     <div class="app-container">
@@ -22,7 +29,7 @@
             <div class="brand-title">
                 <div class="logo-icon"></div>
                 <h1>Subtitle Studio <span>Pro</span></h1>
-                <span class="version-badge" id="appVersionBadge">v1.2.0</span>
+                <span class="version-badge" id="appVersionBadge">v1.6.0</span>
             </div>
             
             <div class="video-input-group">
@@ -46,7 +53,8 @@
             </div>
 
             <div class="header-actions">
-                <button id="btnExportRender" class="btn btn-primary btn-glow">🚀 Export Video & XML</button>
+                <button id="btnOpenGallery" class="btn btn-secondary">🎬 Gallery</button>
+                <button id="btnExportRender" class="btn btn-primary btn-glow">🚀 Export Options</button>
             </div>
         </header>
 
@@ -56,7 +64,7 @@
             <!-- LEFT COLUMN: CAPTIONS MANAGER -->
             <section class="panel captions-panel glass-panel">
                 <div class="panel-header">
-                    <h2><span class="panel-icon">📝</span> Captions & Subtitles</h2>
+                    <h2><span class="panel-icon">📝</span> Captions</h2>
                     <div class="panel-actions">
                         <button id="btnImportSrt" class="btn-sm">Import .SRT</button>
                         <input type="file" id="srtFileInput" accept=".srt" style="display:none;">
@@ -130,199 +138,212 @@
                     <h2><span class="panel-icon">🎨</span> Essential Graphics</h2>
                 </div>
 
+                <!-- APPLE SEGMENTED TAB CONTROL BAR -->
+                <div class="segmented-tabs">
+                    <button class="tab-btn active" data-tab="tab-text">🔤 Text</button>
+                    <button class="tab-btn" data-tab="tab-transform">📐 Transform</button>
+                    <button class="tab-btn" data-tab="tab-appearance">🎨 Appearance</button>
+                </div>
+
                 <div class="properties-scroll-container">
                     
-                    <!-- 1. TEXT SECTION -->
-                    <fieldset class="prop-group">
-                        <legend>Text</legend>
+                    <!-- TAB 1: TEXT SECTION -->
+                    <div class="tab-pane active" id="tab-text">
+                        <fieldset class="prop-group">
+                            <legend>Font & Formatting</legend>
 
-                        <div class="form-row">
-                            <label>Font Family & Style:</label>
-                            <div class="font-select-wrapper">
-                                <select id="fontFamilySelect" class="input-select">
-                                    <option value="Montserrat">Montserrat</option>
-                                    <option value="Poppins">Poppins</option>
-                                    <option value="Inter">Inter</option>
-                                    <option value="Oswald">Oswald</option>
-                                    <option value="Roboto">Roboto</option>
-                                    <option value="Arial">Arial</option>
-                                </select>
-                                <select id="fontStyleSelect" class="input-select-style">
-                                    <option value="Regular">Regular</option>
-                                    <option value="Bold" selected>Bold</option>
-                                    <option value="Italic">Italic</option>
-                                    <option value="Black">Black</option>
-                                </select>
-                                <button id="btnUploadFont" class="btn-sm btn-icon" title="Upload Custom Font">⬆️</button>
-                                <input type="file" id="fontFileInput" accept=".ttf,.otf" style="display:none;">
-                            </div>
-                        </div>
-
-                        <!-- Font Size with Slider + Numeric Input -->
-                        <div class="form-row slider-row">
-                            <label>Font Size (px):</label>
-                            <div class="slider-with-number">
-                                <input type="range" id="fontSizeSlider" min="10" max="200" value="48">
-                                <input type="number" id="fontSizeInput" value="48" min="10" max="200">
-                            </div>
-                        </div>
-
-                        <!-- Paragraph Alignment -->
-                        <div class="form-row">
-                            <label>Paragraph Alignment:</label>
-                            <div class="para-align-grid">
-                                <button class="btn-para-align" data-align="left" title="Align Left">⯇ Left</button>
-                                <button class="btn-para-align active" data-align="center" title="Align Center">≡ Center</button>
-                                <button class="btn-para-align" data-align="right" title="Align Right">⯈ Right</button>
-                                <button class="btn-para-align" data-align="justify" title="Justify">☰ Justify</button>
-                            </div>
-                        </div>
-
-                        <div class="form-row split-2">
-                            <div>
-                                <label>Tracking (VA):</label>
-                                <input type="number" id="trackingInput" value="0" min="-50" max="100">
-                            </div>
-                            <div>
-                                <label>Leading (A/A):</label>
-                                <input type="number" id="leadingInput" value="1.2" step="0.1" min="0.5" max="3">
-                            </div>
-                        </div>
-
-                        <!-- 8 FAUX FORMATTING BUTTONS -->
-                        <div class="faux-buttons-grid">
-                            <button class="btn-faux" id="btnFauxBold" title="Bold"><b>B</b></button>
-                            <button class="btn-faux" id="btnFauxItalic" title="Italic"><i>I</i></button>
-                            <button class="btn-faux" id="btnFauxAllCaps" title="All Caps">TT</button>
-                            <button class="btn-faux" id="btnFauxSmallCaps" title="Small Caps">Tt</button>
-                            <button class="btn-faux" id="btnFauxUnderline" title="Underline"><u>U</u></button>
-                            <button class="btn-faux" id="btnFauxStrikethrough" title="Strikethrough"><s>S</s></button>
-                            <button class="btn-faux" id="btnFauxSuperscript" title="Superscript">X²</button>
-                            <button class="btn-faux" id="btnFauxSubscript" title="Subscript">X₂</button>
-                        </div>
-                    </fieldset>
-
-                    <!-- 2. ALIGN AND TRANSFORM SECTION -->
-                    <fieldset class="prop-group">
-                        <legend>Align and Transform</legend>
-                        <div class="align-matrix-container">
-                            <label>3x3 Zone Matrix Placement:</label>
-                            <div class="align-grid-3x3">
-                                <button class="btn-align" data-align="top-left" title="Top Left">↖</button>
-                                <button class="btn-align" data-align="top-center" title="Top Center">↑</button>
-                                <button class="btn-align" data-align="top-right" title="Top Right">↗</button>
-                                <button class="btn-align" data-align="middle-left" title="Middle Left">←</button>
-                                <button class="btn-align" data-align="center" title="Center">┼</button>
-                                <button class="btn-align" data-align="middle-right" title="Middle Right">→</button>
-                                <button class="btn-align" data-align="bottom-left" title="Bottom Left">↙</button>
-                                <button class="btn-align active" data-align="bottom-center" title="Bottom Center">↓</button>
-                                <button class="btn-align" data-align="bottom-right" title="Bottom Right">↘</button>
-                            </div>
-                        </div>
-
-                        <div class="form-row split-2" style="margin-top: 10px;">
-                            <div>
-                                <label>Pos X (px):</label>
-                                <input type="number" id="posXInput" placeholder="Auto">
-                            </div>
-                            <div>
-                                <label>Pos Y (px):</label>
-                                <input type="number" id="posYInput" placeholder="Auto">
-                            </div>
-                        </div>
-                    </fieldset>
-
-                    <!-- 3. APPEARANCE SECTION -->
-                    <fieldset class="prop-group">
-                        <legend>Appearance</legend>
-                        
-                        <!-- FILL CONTROL -->
-                        <div class="appearance-row">
-                            <div class="check-label">
-                                <input type="checkbox" id="fillToggle" checked>
-                                <label for="fillToggle">Fill</label>
-                            </div>
-                            <div class="color-picker-box">
-                                <input type="color" id="primaryColorInput" value="#FFFFFF">
-                                <input type="range" id="primaryOpacityInput" min="0" max="1" step="0.05" value="1" title="Opacity">
-                            </div>
-                        </div>
-
-                        <!-- STROKE CONTROL -->
-                        <div class="appearance-row column-layout">
-                            <div class="check-label-row">
-                                <div class="check-label">
-                                    <input type="checkbox" id="strokeToggle" checked>
-                                    <label for="strokeToggle">Stroke</label>
-                                </div>
-                                <div class="color-picker-box">
-                                    <input type="color" id="strokeColorInput" value="#000000">
-                                </div>
-                            </div>
-                            <div class="form-row split-2">
-                                <div>
-                                    <label>Width (px):</label>
-                                    <input type="number" id="strokeWidthInput" value="2" min="0" max="30">
-                                </div>
-                                <div>
-                                    <label>Type:</label>
-                                    <select id="strokeTypeSelect" class="input-select-sm">
-                                        <option value="Outer" selected>Outer</option>
-                                        <option value="Inner">Inner</option>
-                                        <option value="Center">Center</option>
+                            <div class="form-row">
+                                <label>Font Family & Style:</label>
+                                <div class="font-select-wrapper">
+                                    <select id="fontFamilySelect" class="input-select">
+                                        <option value="Montserrat">Montserrat</option>
+                                        <option value="Poppins">Poppins</option>
+                                        <option value="Inter">Inter</option>
+                                        <option value="Oswald">Oswald</option>
+                                        <option value="Roboto">Roboto</option>
+                                        <option value="Arial">Arial</option>
                                     </select>
+                                    <select id="fontStyleSelect" class="input-select-style">
+                                        <option value="Regular">Regular</option>
+                                        <option value="Bold" selected>Bold</option>
+                                        <option value="Italic">Italic</option>
+                                        <option value="Black">Black</option>
+                                    </select>
+                                    <button id="btnUploadFont" class="btn-sm btn-icon" title="Upload Custom Font">⬆️</button>
+                                    <input type="file" id="fontFileInput" accept=".ttf,.otf" style="display:none;">
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- BACKGROUND CONTROL -->
-                        <div class="appearance-row column-layout">
-                            <div class="check-label-row">
-                                <div class="check-label">
-                                    <input type="checkbox" id="bgToggle">
-                                    <label for="bgToggle">Background</label>
-                                </div>
-                                <div class="color-picker-box">
-                                    <input type="color" id="bgColorInput" value="#000000">
+                            <!-- Font Size with Slider + Numeric Input -->
+                            <div class="form-row slider-row">
+                                <label>Font Size (px):</label>
+                                <div class="slider-with-number">
+                                    <input type="range" id="fontSizeSlider" min="10" max="200" value="48">
+                                    <input type="number" id="fontSizeInput" value="48" min="10" max="200">
                                 </div>
                             </div>
+
+                            <!-- Paragraph Alignment -->
+                            <div class="form-row">
+                                <label>Paragraph Alignment:</label>
+                                <div class="para-align-grid">
+                                    <button class="btn-para-align" data-align="left" title="Align Left">⯇ Left</button>
+                                    <button class="btn-para-align active" data-align="center" title="Align Center">≡ Center</button>
+                                    <button class="btn-para-align" data-align="right" title="Align Right">⯈ Right</button>
+                                    <button class="btn-para-align" data-align="justify" title="Justify">☰ Justify</button>
+                                </div>
+                            </div>
+
                             <div class="form-row split-2">
                                 <div>
-                                    <label>Opacity (%):</label>
-                                    <input type="range" id="bgOpacityInput" min="0" max="1" step="0.05" value="0">
+                                    <label>Tracking (VA):</label>
+                                    <input type="number" id="trackingInput" value="0" min="-50" max="100">
                                 </div>
                                 <div>
-                                    <label>Padding (px):</label>
-                                    <input type="number" id="bgPaddingInput" value="10" min="0" max="100">
+                                    <label>Leading (A/A):</label>
+                                    <input type="number" id="leadingInput" value="1.2" step="0.1" min="0.5" max="3">
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- SHADOW CONTROL -->
-                        <div class="appearance-row column-layout">
-                            <div class="check-label-row">
+                            <!-- 8 FAUX FORMATTING BUTTONS -->
+                            <div class="faux-buttons-grid">
+                                <button class="btn-faux" id="btnFauxBold" title="Bold"><b>B</b></button>
+                                <button class="btn-faux" id="btnFauxItalic" title="Italic"><i>I</i></button>
+                                <button class="btn-faux" id="btnFauxAllCaps" title="All Caps">TT</button>
+                                <button class="btn-faux" id="btnFauxSmallCaps" title="Small Caps">Tt</button>
+                                <button class="btn-faux" id="btnFauxUnderline" title="Underline"><u>U</u></button>
+                                <button class="btn-faux" id="btnFauxStrikethrough" title="Strikethrough"><s>S</s></button>
+                                <button class="btn-faux" id="btnFauxSuperscript" title="Superscript">X²</button>
+                                <button class="btn-faux" id="btnFauxSubscript" title="Subscript">X₂</button>
+                            </div>
+                        </fieldset>
+                    </div>
+
+                    <!-- TAB 2: ALIGN AND TRANSFORM SECTION -->
+                    <div class="tab-pane" id="tab-transform">
+                        <fieldset class="prop-group">
+                            <legend>Align and Transform</legend>
+                            <div class="align-matrix-container">
+                                <label>3x3 Zone Matrix Placement:</label>
+                                <div class="align-grid-3x3">
+                                    <button class="btn-align" data-align="top-left" title="Top Left">↖</button>
+                                    <button class="btn-align" data-align="top-center" title="Top Center">↑</button>
+                                    <button class="btn-align" data-align="top-right" title="Top Right">↗</button>
+                                    <button class="btn-align" data-align="middle-left" title="Middle Left">←</button>
+                                    <button class="btn-align" data-align="center" title="Center">┼</button>
+                                    <button class="btn-align" data-align="middle-right" title="Middle Right">→</button>
+                                    <button class="btn-align" data-align="bottom-left" title="Bottom Left">↙</button>
+                                    <button class="btn-align active" data-align="bottom-center" title="Bottom Center">↓</button>
+                                    <button class="btn-align" data-align="bottom-right" title="Bottom Right">↘</button>
+                                </div>
+                            </div>
+
+                            <div class="form-row split-2" style="margin-top: 10px;">
+                                <div>
+                                    <label>Pos X (px):</label>
+                                    <input type="number" id="posXInput" placeholder="Auto">
+                                </div>
+                                <div>
+                                    <label>Pos Y (px):</label>
+                                    <input type="number" id="posYInput" placeholder="Auto">
+                                </div>
+                            </div>
+                        </fieldset>
+                    </div>
+
+                    <!-- TAB 3: APPEARANCE SECTION -->
+                    <div class="tab-pane" id="tab-appearance">
+                        <fieldset class="prop-group">
+                            <legend>Appearance</legend>
+                            
+                            <!-- FILL CONTROL -->
+                            <div class="appearance-row">
                                 <div class="check-label">
-                                    <input type="checkbox" id="shadowToggle">
-                                    <label for="shadowToggle">Shadow</label>
+                                    <input type="checkbox" id="fillToggle" checked>
+                                    <label for="fillToggle">Fill Color</label>
                                 </div>
                                 <div class="color-picker-box">
-                                    <input type="color" id="shadowColorInput" value="#000000">
+                                    <input type="color" id="primaryColorInput" value="#FFFFFF">
+                                    <input type="range" id="primaryOpacityInput" min="0" max="1" step="0.05" value="1" title="Opacity">
                                 </div>
                             </div>
-                            <div class="form-row split-2">
-                                <div>
-                                    <label>Distance:</label>
-                                    <input type="number" id="shadowDistanceInput" value="4" min="0" max="50">
-                                </div>
-                                <div>
-                                    <label>Blur:</label>
-                                    <input type="number" id="shadowBlurInput" value="4" min="0" max="50">
-                                </div>
-                            </div>
-                        </div>
-                    </fieldset>
 
-                    <!-- 4. DIAGNOSTIC EXECUTION CONSOLE -->
+                            <!-- STROKE CONTROL -->
+                            <div class="appearance-row column-layout">
+                                <div class="check-label-row">
+                                    <div class="check-label">
+                                        <input type="checkbox" id="strokeToggle" checked>
+                                        <label for="strokeToggle">Stroke</label>
+                                    </div>
+                                    <div class="color-picker-box">
+                                        <input type="color" id="strokeColorInput" value="#000000">
+                                    </div>
+                                </div>
+                                <div class="form-row split-2">
+                                    <div>
+                                        <label>Width (px):</label>
+                                        <input type="number" id="strokeWidthInput" value="2" min="0" max="30">
+                                    </div>
+                                    <div>
+                                        <label>Type:</label>
+                                        <select id="strokeTypeSelect" class="input-select-sm">
+                                            <option value="Outer" selected>Outer</option>
+                                            <option value="Inner">Inner</option>
+                                            <option value="Center">Center</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- BACKGROUND CONTROL -->
+                            <div class="appearance-row column-layout">
+                                <div class="check-label-row">
+                                    <div class="check-label">
+                                        <input type="checkbox" id="bgToggle">
+                                        <label for="bgToggle">Background Box</label>
+                                    </div>
+                                    <div class="color-picker-box">
+                                        <input type="color" id="bgColorInput" value="#000000">
+                                    </div>
+                                </div>
+                                <div class="form-row split-2">
+                                    <div>
+                                        <label>Opacity (%):</label>
+                                        <input type="range" id="bgOpacityInput" min="0" max="1" step="0.05" value="0">
+                                    </div>
+                                    <div>
+                                        <label>Padding (px):</label>
+                                        <input type="number" id="bgPaddingInput" value="10" min="0" max="100">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SHADOW CONTROL -->
+                            <div class="appearance-row column-layout">
+                                <div class="check-label-row">
+                                    <div class="check-label">
+                                        <input type="checkbox" id="shadowToggle">
+                                        <label for="shadowToggle">Drop Shadow</label>
+                                    </div>
+                                    <div class="color-picker-box">
+                                        <input type="color" id="shadowColorInput" value="#000000">
+                                    </div>
+                                </div>
+                                <div class="form-row split-2">
+                                    <div>
+                                        <label>Distance:</label>
+                                        <input type="number" id="shadowDistanceInput" value="4" min="0" max="50">
+                                    </div>
+                                    <div>
+                                        <label>Blur:</label>
+                                        <input type="number" id="shadowBlurInput" value="4" min="0" max="50">
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </div>
+
+                    <!-- DIAGNOSTIC EXECUTION CONSOLE -->
                     <fieldset class="prop-group console-group">
                         <legend>Execution Console</legend>
                         <div class="console-header">
@@ -333,7 +354,7 @@
                             </div>
                         </div>
                         <div class="console-box" id="execConsoleBox">
-                            <div class="console-line info">[System initialized] Premiere Properties Subtitle Studio v1.2.0 Ready.</div>
+                            <div class="console-line info">[System initialized] Premiere Properties Subtitle Studio v1.6.0 Ready.</div>
                         </div>
                     </fieldset>
 
@@ -341,6 +362,65 @@
             </section>
 
         </main>
+
+        <!-- EXPORT OPTIONS DIALOG MODAL -->
+        <div class="modal-overlay" id="exportOptionsModal" style="display: none;">
+            <div class="modal-card glass-panel" style="width: 480px;">
+                <h3>⚙️ Export Settings & Options</h3>
+
+                <div class="form-row">
+                    <label for="customOutputDirInput">Target Local Export Folder:</label>
+                    <input type="text" id="customOutputDirInput" placeholder="Default (app /exports folder)">
+                </div>
+
+                <div class="form-row">
+                    <label for="driveExportPathInput">Google Drive Export Destination Path:</label>
+                    <input type="text" id="driveExportPathInput" placeholder="e.g. /content/drive/My Drive/SubtitleStudioExports">
+                </div>
+
+                <div class="export-artifacts-section">
+                    <label>Select Artifacts to Export:</label>
+                    <div class="artifacts-check-grid">
+                        <div class="check-item">
+                            <input type="checkbox" id="exportMp4Check" checked>
+                            <label for="exportMp4Check">🎥 Rendered MP4 Video</label>
+                        </div>
+                        <div class="check-item">
+                            <input type="checkbox" id="exportSrtCheck" checked>
+                            <label for="exportSrtCheck">📄 .SRT Subtitle File</label>
+                        </div>
+                        <div class="check-item">
+                            <input type="checkbox" id="exportXmlCheck" checked>
+                            <label for="exportXmlCheck">🎬 Premiere Pro XML Sequence</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions-row">
+                    <button id="btnCloseExportOptions" class="btn btn-secondary">Cancel</button>
+                    <button id="btnConfirmExport" class="btn btn-primary btn-glow">🚀 Start Render Export</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RENDERED VIDEOS GALLERY MODAL -->
+        <div class="modal-overlay" id="exportsGalleryModal" style="display: none;">
+            <div class="modal-card glass-panel gallery-modal-card">
+                <div class="gallery-header">
+                    <h3>🎬 Rendered Videos Gallery</h3>
+                    <button id="btnCloseGallery" class="btn-xs">✖ Close</button>
+                </div>
+
+                <!-- DASHBOARD EMBEDDED VIDEO PLAYER -->
+                <div class="gallery-player-container">
+                    <video id="galleryVideoPlayer" controls preload="auto"></video>
+                </div>
+
+                <div class="gallery-list-container" id="galleryList">
+                    <!-- Dynamic Exported Video Cards injected here by app.js -->
+                </div>
+            </div>
+        </div>
 
         <!-- RENDER PROGRESS MODAL DIALOG -->
         <div class="modal-overlay" id="renderModal" style="display: none;">
@@ -356,13 +436,7 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- MODULAR JS SCRIPTS -->
-    <script src="js/console.js"></script>
-    <script src="js/captions.js"></script>
-    <script src="js/properties.js"></script>
-    <script src="js/timeline.js"></script>
-    <script src="js/app.js"></script>
+    </div>
 </body>
 </html>

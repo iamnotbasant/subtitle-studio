@@ -3,7 +3,7 @@ import sys
 import threading
 from pathlib import Path
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.6.0"
 
 # Environment detection
 IS_COLAB = "google.colab" in sys.modules

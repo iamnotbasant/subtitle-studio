@@ -1,9 +1,9 @@
 /* Premiere Properties Subtitle Studio - Apple Dark UI & Essential Graphics Stylesheet */
 :root {
-    --bg-dark: #08080a;
-    --bg-panel: #141416;
-    --bg-card: #1c1c1e;
-    --bg-input: #121214;
+    --bg-dark: #09090b;
+    --bg-panel: #121215;
+    --bg-card: #1a1a1e;
+    --bg-input: #151518;
     --accent-blue: #0a84ff;
     --accent-green: #30d158;
     --accent-pink: #ff375f;
@@ -13,7 +13,7 @@
     --text-muted: #8e8e93;
     --border-color: rgba(255, 255, 255, 0.08);
     --border-highlight: rgba(255, 255, 255, 0.16);
-    --glass-bg: rgba(20, 20, 22, 0.75);
+    --glass-bg: rgba(18, 18, 21, 0.85);
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
     --font-heading: 'Montserrat', sans-serif;
 }
@@ -22,6 +22,22 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+}
+
+/* CUSTOM ULTRA-SLEEK SCROLLBARS */
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
 }
 
 body.apple-dark-theme {
@@ -50,12 +66,12 @@ body.apple-dark-theme {
 
 /* TOP NAVBAR */
 .top-navbar {
-    height: 56px;
+    height: 54px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 18px;
-    gap: 16px;
+    padding: 0 16px;
+    gap: 14px;
     z-index: 100;
 }
 
@@ -63,6 +79,7 @@ body.apple-dark-theme {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
 }
 
 .brand-title .logo-icon {
@@ -72,9 +89,10 @@ body.apple-dark-theme {
 
 .brand-title h1 {
     font-family: var(--font-heading);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     letter-spacing: -0.4px;
+    white-space: nowrap;
 }
 
 .brand-title h1 span {
@@ -89,26 +107,27 @@ body.apple-dark-theme {
     font-weight: 600;
     padding: 2px 8px;
     border-radius: 10px;
+    white-space: nowrap;
 }
 
 /* VIDEO INPUT GROUP */
 .video-input-group {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex: 1;
-    max-width: 540px;
+    max-width: 480px;
 }
 
 .input-field {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex: 1;
 }
 
 .input-field label {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-muted);
     white-space: nowrap;
 }
@@ -118,9 +137,9 @@ body.apple-dark-theme {
     background: var(--bg-input);
     border: 1px solid var(--border-color);
     color: var(--text-main);
-    padding: 7px 10px;
+    padding: 6px 10px;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 11px;
     outline: none;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -134,13 +153,21 @@ body.apple-dark-theme {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 /* BUTTONS */
 .btn {
-    padding: 7px 14px;
+    padding: 6px 13px;
     border-radius: 6px;
     font-size: 12px;
     font-weight: 600;
@@ -148,6 +175,7 @@ body.apple-dark-theme {
     border: none;
     transition: all 0.2s ease;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .btn-primary {
@@ -190,13 +218,15 @@ body.apple-dark-theme {
 }
 
 .btn-sm {
-    padding: 4px 10px;
+    padding: 4px 9px;
     font-size: 11px;
     border-radius: 5px;
     border: 1px solid var(--border-color);
     background: var(--bg-card);
     color: var(--text-main);
     cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .btn-sm:hover {
@@ -211,13 +241,15 @@ body.apple-dark-theme {
     background: var(--bg-input);
     color: var(--text-muted);
     cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .btn-xs:hover {
     color: var(--text-main);
 }
 
-/* WORKSPACE GRID (3-COLUMN STUDIO LAYOUT) */
+/* WORKSPACE GRID (3-COLUMN STUDIO LAYOUT WITH LAYOUT CONTAINMENT) */
 .workspace-grid {
     display: grid;
     grid-template-columns: 310px 1fr 340px;
@@ -226,6 +258,7 @@ body.apple-dark-theme {
     gap: 4px;
     padding: 4px;
     background: var(--bg-dark);
+    contain: layout style paint;
 }
 
 .panel {
@@ -234,19 +267,21 @@ body.apple-dark-theme {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    contain: layout style paint;
 }
 
 .panel-header {
-    height: 40px;
+    height: 38px;
     border-bottom: 1px solid var(--border-color);
-    padding: 0 14px;
+    padding: 0 12px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-shrink: 0;
 }
 
 .panel-header h2 {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.2px;
     text-transform: uppercase;
@@ -254,28 +289,38 @@ body.apple-dark-theme {
     display: flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
 }
 
-/* CAPTIONS PANEL */
+.panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* CAPTIONS PANEL & CONTENT-VISIBILITY OPTIMIZATION */
 .captions-list-container {
     flex: 1;
     overflow-y: auto;
-    padding: 10px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .caption-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 10px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
     cursor: pointer;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    content-visibility: auto;
+    contain-intrinsic-size: 80px;
 }
 
 .caption-card:hover {
@@ -284,7 +329,7 @@ body.apple-dark-theme {
 
 .caption-card.active {
     border-color: var(--accent-blue);
-    box-shadow: 0 0 12px rgba(10, 132, 255, 0.25);
+    box-shadow: 0 0 10px rgba(10, 132, 255, 0.25);
 }
 
 .card-header-row {
@@ -302,12 +347,12 @@ body.apple-dark-theme {
 }
 
 .time-input {
-    width: 65px;
+    width: 60px;
     background: var(--bg-input);
     border: 1px solid var(--border-color);
     color: var(--accent-blue);
     font-family: monospace;
-    font-size: 11px;
+    font-size: 10px;
     padding: 2px 4px;
     border-radius: 4px;
     text-align: center;
@@ -326,12 +371,12 @@ body.apple-dark-theme {
     background: var(--bg-input);
     border: 1px solid var(--border-color);
     color: var(--text-main);
-    padding: 6px 8px;
+    padding: 5px 7px;
     border-radius: 4px;
     font-family: var(--font-sans);
     font-size: 12px;
     resize: vertical;
-    min-height: 40px;
+    min-height: 38px;
     outline: none;
 }
 
@@ -343,11 +388,12 @@ body.apple-dark-theme {
 .preview-panel {
     display: flex;
     flex-direction: column;
+    contain: layout style paint;
 }
 
 .timecode-display {
     font-family: monospace;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--accent-blue);
     background: var(--bg-input);
     padding: 2px 8px;
@@ -363,7 +409,8 @@ body.apple-dark-theme {
     justify-content: center;
     overflow: hidden;
     position: relative;
-    padding: 10px;
+    padding: 8px;
+    contain: strict;
 }
 
 .video-container {
@@ -410,14 +457,14 @@ body.apple-dark-theme {
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    padding: 30px;
+    padding: 24px;
     transform: translate3d(0, 0, 0);
     will-change: transform;
 }
 
 .subtitle-text-box {
     pointer-events: auto;
-    padding: 8px 16px;
+    padding: 6px 14px;
     border-radius: 4px;
     font-size: 32px;
     font-weight: 700;
@@ -436,23 +483,24 @@ body.apple-dark-theme {
 
 /* PLAYER TRANSPORT CONTROLS */
 .player-controls {
-    height: 44px;
+    height: 40px;
     background: var(--bg-panel);
     border-top: 1px solid var(--border-color);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding: 0 14px;
+    gap: 10px;
+    padding: 0 12px;
+    flex-shrink: 0;
 }
 
 .btn-ctrl {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     color: var(--text-main);
-    padding: 5px 12px;
+    padding: 4px 10px;
     border-radius: 5px;
-    font-size: 12px;
+    font-size: 11px;
     cursor: pointer;
 }
 
@@ -469,36 +517,78 @@ body.apple-dark-theme {
 }
 
 .volume-box input[type="range"] {
-    width: 65px;
+    width: 60px;
 }
 
 /* PREMIERE PRO ESSENTIAL GRAPHICS PROPERTIES PANEL */
 .properties-panel {
     display: flex;
     flex-direction: column;
+    contain: layout style paint;
+}
+
+/* APPLE SEGMENTED TAB BAR */
+.segmented-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: var(--bg-input);
+    padding: 3px;
+    gap: 3px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.tab-btn {
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+    color: var(--text-main);
+}
+
+.tab-btn.active {
+    background: var(--accent-blue);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(10, 132, 255, 0.4);
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
 }
 
 .properties-scroll-container {
     flex: 1;
     overflow-y: auto;
-    padding: 10px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .prop-group {
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 10px;
+    padding: 8px;
     background: var(--bg-card);
 }
 
 .prop-group legend {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--accent-blue);
-    padding: 0 6px;
+    padding: 0 4px;
     text-transform: uppercase;
 }
 
@@ -506,7 +596,7 @@ body.apple-dark-theme {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .form-row:last-child {
@@ -516,7 +606,7 @@ body.apple-dark-theme {
 .form-row.split-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 6px;
 }
 
 .form-row.slider-row {
@@ -528,7 +618,7 @@ body.apple-dark-theme {
 .slider-with-number {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .slider-with-number input[type="range"] {
@@ -536,14 +626,15 @@ body.apple-dark-theme {
 }
 
 .slider-with-number input[type="number"] {
-    width: 55px;
+    width: 50px;
 }
 
 .form-row label {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-muted);
 }
 
+.form-row input[type="text"],
 .form-row input[type="number"],
 .form-row select,
 .input-select,
@@ -553,7 +644,7 @@ body.apple-dark-theme {
     background: var(--bg-input);
     border: 1px solid var(--border-color);
     color: var(--text-main);
-    padding: 5px 8px;
+    padding: 4px 7px;
     border-radius: 4px;
     font-size: 11px;
     outline: none;
@@ -572,8 +663,8 @@ body.apple-dark-theme {
 }
 
 .color-picker-box input[type="color"] {
-    width: 28px;
-    height: 24px;
+    width: 26px;
+    height: 22px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -584,7 +675,7 @@ body.apple-dark-theme {
 .para-align-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 4px;
+    gap: 3px;
 }
 
 .btn-para-align {
@@ -612,11 +703,11 @@ body.apple-dark-theme {
 }
 
 .btn-faux {
-    height: 26px;
+    height: 24px;
     background: var(--bg-input);
     border: 1px solid var(--border-color);
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 10px;
     border-radius: 4px;
     cursor: pointer;
 }
@@ -669,7 +760,7 @@ body.apple-dark-theme {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 0;
+    padding: 5px 0;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -680,7 +771,7 @@ body.apple-dark-theme {
 .appearance-row.column-layout {
     flex-direction: column;
     align-items: stretch;
-    gap: 6px;
+    gap: 5px;
 }
 
 .check-label-row {
@@ -697,6 +788,118 @@ body.apple-dark-theme {
     font-weight: 500;
 }
 
+/* EXPORT OPTIONS MODAL */
+.export-artifacts-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.artifacts-check-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bg-input);
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.check-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-main);
+}
+
+.modal-actions-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+/* RENDERED VIDEOS GALLERY MODAL */
+.gallery-modal-card {
+    width: 680px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.gallery-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.gallery-player-container {
+    width: 100%;
+    max-height: 300px;
+    background: #000;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#galleryVideoPlayer {
+    width: 100%;
+    max-height: 300px;
+}
+
+.gallery-list-container {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.gallery-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    content-visibility: auto;
+    contain-intrinsic-size: 60px;
+}
+
+.gallery-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.gallery-card-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.gallery-card-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.gallery-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 /* CONSOLE BOX */
 .console-group {
     background: var(--bg-input);
@@ -706,18 +909,18 @@ body.apple-dark-theme {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-muted);
     margin-bottom: 4px;
 }
 
 .console-box {
-    height: 110px;
+    height: 90px;
     overflow-y: auto;
     background: #000;
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    padding: 6px;
+    padding: 5px;
     font-family: monospace;
     font-size: 10px;
     display: flex;
@@ -746,10 +949,10 @@ body.apple-dark-theme {
 .modal-card {
     width: 400px;
     border-radius: 10px;
-    padding: 20px;
+    padding: 18px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
 }
 
 .progress-bar-track {

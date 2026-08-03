@@ -1,5 +1,5 @@
 /**
- * Diagnostic Console Logger Utility
+ * Diagnostic Console Logger Utility (Max 50 Lines DOM Memory Capped)
  */
 
 function getTimestampString() {
@@ -19,6 +19,12 @@ function logExec(message, type = 'info') {
     line.textContent = `${getTimestampString()} ${message}`;
 
     consoleBox.appendChild(line);
+
+    // Limit DOM size to max 50 lines for high performance memory management
+    while (consoleBox.children.length > 50) {
+        consoleBox.removeChild(consoleBox.firstChild);
+    }
+
     consoleBox.scrollTop = consoleBox.scrollHeight;
 }
 

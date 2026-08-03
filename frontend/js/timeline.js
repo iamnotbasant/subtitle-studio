@@ -1,15 +1,19 @@
 /**
- * Interactive Timeline Track, Draggable Clips & Playhead Scrubbing Engine
+ * Hardware-Accelerated Interactive Timeline Track Engine (Zero Playback Lag)
  */
 
-let zoomScale = 100; // Pixels per second (100px = 1s at 100% zoom)
+let zoomScale = 100;
 let isDraggingClip = false;
 let isTrimmingClip = false;
 let currentDraggedClipId = null;
-let currentTrimEdge = null; // 'left' or 'right'
+let currentTrimEdge = null;
 let dragStartX = 0;
 let dragOriginalStart = 0;
 let dragOriginalEnd = 0;
+
+let cachedPlayheadNode = null;
+let cachedTimecodeNode = null;
+let cachedVideoNode = null;
 
 function secondsToPixels(sec) {
     return (sec * zoomScale) / 10;
@@ -19,10 +23,17 @@ function pixelsToSeconds(px) {
     return (px * 10) / zoomScale;
 }
 
+function getPlayheadNodes() {
+    if (!cachedPlayheadNode) cachedPlayheadNode = document.getElementById('timelinePlayhead');
+    if (!cachedTimecodeNode) cachedTimecodeNode = document.getElementById('timecodeDisplay');
+    if (!cachedVideoNode) cachedVideoNode = document.getElementById('mainVideoPlayer');
+    return { playhead: cachedPlayheadNode, timecode: cachedTimecodeNode, video: cachedVideoNode };
+}
+
 function renderTimelineTrack() {
     const track = document.getElementById('subtitleTrack');
     const ruler = document.getElementById('timeRuler');
-    const video = document.getElementById('mainVideoPlayer');
+    const { video } = getPlayheadNodes();
     if (!track || !ruler) return;
 
     const totalDuration = (video && video.duration && !isNaN(video.duration)) ? video.duration : 60;
@@ -31,7 +42,6 @@ function renderTimelineTrack() {
     track.style.width = `${Math.max(totalWidthPx, 800)}px`;
     ruler.style.width = `${Math.max(totalWidthPx, 800)}px`;
 
-    // Render Ruler Ticks
     ruler.innerHTML = '';
     const stepSec = zoomScale > 300 ? 1 : (zoomScale > 150 ? 2 : 5);
     for (let sec = 0; sec <= totalDuration; sec += stepSec) {
@@ -49,7 +59,6 @@ function renderTimelineTrack() {
         ruler.appendChild(label);
     }
 
-    // Render Draggable Clips
     track.innerHTML = '';
     captionsData.forEach((item) => {
         const clip = document.createElement('div');
@@ -68,7 +77,6 @@ function renderTimelineTrack() {
             <div class="trim-handle right-handle" data-id="${item.id}" data-edge="right"></div>
         `;
 
-        // Select caption on clip click
         clip.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('trim-handle')) {
                 isTrimmingClip = true;
@@ -91,17 +99,15 @@ function renderTimelineTrack() {
 }
 
 function updatePlayheadPosition() {
-    const video = document.getElementById('mainVideoPlayer');
-    const playhead = document.getElementById('timelinePlayhead');
-    const timecode = document.getElementById('timecodeDisplay');
-
+    const { playhead, timecode, video } = getPlayheadNodes();
     if (!video || !playhead) return;
 
     const currTime = video.currentTime || 0;
     const leftPx = secondsToPixels(currTime);
-    playhead.style.left = `${leftPx}px`;
 
-    // Timecode format hh:mm:ss:ff
+    // GPU compositor accelerated positioning (0% reflow lag)
+    playhead.style.transform = `translate3d(${leftPx}px, 0, 0)`;
+
     if (timecode) {
         const hrs = String(Math.floor(currTime / 3600)).padStart(2, '0');
         const mins = String(Math.floor((currTime % 3600) / 60)).padStart(2, '0');
@@ -115,7 +121,7 @@ function initTimelineEvents() {
     const zoomInput = document.getElementById('timelineZoom');
     const zoomVal = document.getElementById('zoomVal');
     const ruler = document.getElementById('timeRuler');
-    const video = document.getElementById('mainVideoPlayer');
+    const { video } = getPlayheadNodes();
 
     if (zoomInput) {
         zoomInput.addEventListener('input', (e) => {
@@ -125,7 +131,6 @@ function initTimelineEvents() {
         });
     }
 
-    // Ruler Scrubbing
     if (ruler) {
         ruler.addEventListener('click', (e) => {
             const rect = ruler.getBoundingClientRect();
@@ -136,7 +141,6 @@ function initTimelineEvents() {
         });
     }
 
-    // Mouse Move Drag & Trim Handlers
     window.addEventListener('mousemove', (e) => {
         if (!currentDraggedClipId) return;
 

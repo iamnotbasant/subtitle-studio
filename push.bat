@@ -1,7 +1,7 @@
 @echo off
 echo Staging and pushing changes to GitHub...
 git add .
-git commit -m "v1.2.0 Apple Dark UI overhaul, dynamic aspect ratio viewport engine, and Premiere Pro Essential Graphics panel"
+git commit -m "v1.6.0 Fast-load network compression GZip, async defer scripts, CSS layout containment, and Lighthouse performance fixes"
 git push origin main
 echo Done!
 pause

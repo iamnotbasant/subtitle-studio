@@ -1,5 +1,5 @@
 /**
- * Pixel-Perfect Premiere Pro Essential Graphics State Manager & 60fps Overlay Scaling Engine
+ * Pixel-Perfect Premiere Pro Essential Graphics State Manager, Segmented Tabs & 60fps Overlay Scaling Engine
  */
 
 const styleState = {
@@ -40,6 +40,18 @@ const styleState = {
 };
 
 let rafPending = false;
+let domCache = null;
+
+function getDomCache() {
+    if (!domCache) {
+        domCache = {
+            overlay: document.getElementById('subtitleOverlay'),
+            textBox: document.getElementById('subtitleTextBox'),
+            container: document.getElementById('videoContainer')
+        };
+    }
+    return domCache;
+}
 
 function hexToRgba(hex, opacity = 1.0) {
     let clean = hex.replace('#', '');
@@ -63,12 +75,9 @@ function requestApplyStyling() {
 }
 
 function applyStyling() {
-    const overlay = document.getElementById('subtitleOverlay');
-    const textBox = document.getElementById('subtitleTextBox');
-    const container = document.getElementById('videoContainer');
+    const { overlay, textBox, container } = getDomCache();
     if (!overlay || !textBox || !container) return;
 
-    // Viewport scaling factor relative to 1080p baseline
     const containerHeight = container.clientHeight || 720;
     const scaleFactor = Math.max(0.3, containerHeight / 1080.0);
 
@@ -185,8 +194,26 @@ function applyStyling() {
     }
 }
 
+function initSegmentedTabs() {
+    const tabBtns = document.querySelectorAll('.segmented-tabs .tab-btn');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabPanes.forEach(p => p.classList.remove('active'));
+
+            btn.classList.add('active');
+            const targetId = btn.dataset.tab;
+            const targetPane = document.getElementById(targetId);
+            if (targetPane) targetPane.classList.add('active');
+        });
+    });
+}
+
 function initPropertiesListeners() {
-    // Font Size Slider <-> Input Sync
+    initSegmentedTabs();
+
     const sizeSlider = document.getElementById('fontSizeSlider');
     const sizeInput = document.getElementById('fontSizeInput');
     if (sizeSlider && sizeInput) {
@@ -205,7 +232,6 @@ function initPropertiesListeners() {
         });
     }
 
-    // Direct Input Bindings
     const bindings = [
         { id: 'fontFamilySelect', prop: 'fontFamily' },
         { id: 'fontStyleSelect', prop: 'fontStyle' },
@@ -238,7 +264,6 @@ function initPropertiesListeners() {
         }
     });
 
-    // Checkbox Toggles
     const toggleBindings = [
         { id: 'fillToggle', prop: 'fillEnabled' },
         { id: 'strokeToggle', prop: 'strokeEnabled' },
@@ -256,7 +281,6 @@ function initPropertiesListeners() {
         }
     });
 
-    // Pos X & Pos Y Inputs
     const posXInput = document.getElementById('posXInput');
     const posYInput = document.getElementById('posYInput');
 
@@ -276,7 +300,6 @@ function initPropertiesListeners() {
         });
     }
 
-    // Paragraph Alignment Buttons
     const paraBtns = document.querySelectorAll('.btn-para-align');
     paraBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -287,7 +310,6 @@ function initPropertiesListeners() {
         });
     });
 
-    // 8 Faux Toggle Buttons
     const fauxMap = [
         { id: 'btnFauxBold', prop: 'bold' },
         { id: 'btnFauxItalic', prop: 'italic' },
@@ -310,14 +332,12 @@ function initPropertiesListeners() {
         }
     });
 
-    // 3x3 Alignment Zone Grid Matrix
     const alignBtns = document.querySelectorAll('.btn-align');
     alignBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             alignBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             styleState.alignment = btn.dataset.align;
-            // Clear manual pos X/Y on zone click
             styleState.posX = null;
             styleState.posY = null;
             if (posXInput) posXInput.value = "";
@@ -326,7 +346,6 @@ function initPropertiesListeners() {
         });
     });
 
-    // Recalculate overlay on window resize
     window.addEventListener('resize', requestApplyStyling);
 
     applyStyling();
