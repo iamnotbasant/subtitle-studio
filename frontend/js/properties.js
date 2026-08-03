@@ -1,11 +1,11 @@
 /**
- * Pixel-Perfect Premiere Pro 2024 Essential Graphics & Presets State Manager
+ * Adobe Premiere Pro 2024 Exact Mathematical Canvas Engine & Properties State Manager (v6.0.0)
  */
 
 const styleState = {
     fontFamily: 'Century Gothic',
     fontStyle: 'Bold',
-    fontSize: 48,
+    fontSize: 75,
     tracking: 0,
     leading: 1.2,
     bold: true,
@@ -47,7 +47,8 @@ function getDomCache() {
         domCache = {
             overlay: document.getElementById('subtitleOverlay'),
             textBox: document.getElementById('subtitleTextBox'),
-            container: document.getElementById('videoContainer')
+            container: document.getElementById('videoContainer'),
+            video: document.getElementById('mainVideoPlayer')
         };
     }
     return domCache;
@@ -68,7 +69,7 @@ function applyPresetStyle(presetKey) {
     if (presetKey === 'pop_yellow') {
         styleState.fontFamily = 'Montserrat';
         styleState.fontStyle = 'Black';
-        styleState.fontSize = 54;
+        styleState.fontSize = 75;
         styleState.primaryColor = '#FFDE00';
         styleState.strokeEnabled = true;
         styleState.strokeColor = '#000000';
@@ -79,7 +80,7 @@ function applyPresetStyle(presetKey) {
     } else if (presetKey === 'classic_white') {
         styleState.fontFamily = 'Century Gothic';
         styleState.fontStyle = 'Bold';
-        styleState.fontSize = 48;
+        styleState.fontSize = 75;
         styleState.primaryColor = '#FFFFFF';
         styleState.strokeEnabled = true;
         styleState.strokeColor = '#000000';
@@ -89,7 +90,7 @@ function applyPresetStyle(presetKey) {
     } else if (presetKey === 'neon_pink') {
         styleState.fontFamily = 'Poppins';
         styleState.fontStyle = 'Bold';
-        styleState.fontSize = 52;
+        styleState.fontSize = 75;
         styleState.primaryColor = '#FF007F';
         styleState.strokeEnabled = true;
         styleState.strokeColor = '#00F3FF';
@@ -100,7 +101,7 @@ function applyPresetStyle(presetKey) {
     } else if (presetKey === 'podcast_pill') {
         styleState.fontFamily = 'Inter';
         styleState.fontStyle = 'Regular';
-        styleState.fontSize = 44;
+        styleState.fontSize = 65;
         styleState.primaryColor = '#FFFFFF';
         styleState.strokeEnabled = false;
         styleState.bgEnabled = true;
@@ -113,6 +114,25 @@ function applyPresetStyle(presetKey) {
     syncUiControlsWithState();
     requestApplyStyling();
     logExec(`Applied preset style: ${presetKey}`, "info");
+}
+
+function resetPosition() {
+    styleState.alignment = 'bottom-center';
+    styleState.posX = -3;
+    styleState.posY = 444;
+
+    const posXInput = document.getElementById('posXInput');
+    const posYInput = document.getElementById('posYInput');
+    if (posXInput) posXInput.value = -3;
+    if (posYInput) posYInput.value = 444;
+
+    const alignBtns = document.querySelectorAll('.btn-align');
+    alignBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.align === 'bottom-center');
+    });
+
+    requestApplyStyling();
+    logExec("Reset subtitle position to default bottom-center (Y: 444).", "info");
 }
 
 function syncUiControlsWithState() {
@@ -163,18 +183,58 @@ function requestApplyStyling() {
 }
 
 function applyStyling() {
-    const { overlay, textBox, container } = getDomCache();
+    const { overlay, textBox, container, video } = getDomCache();
     if (!overlay || !textBox || !container) return;
 
-    const containerHeight = container.clientHeight || 720;
-    const scaleFactor = Math.max(0.3, containerHeight / 1080.0);
+    // Detect Sequence Aspect Ratio (Default 1080x1920 for vertical video)
+    let refWidth = 1080.0;
+    let refHeight = 1920.0;
+    if (video && video.videoWidth && video.videoHeight) {
+        if (video.videoWidth > video.videoHeight) {
+            refWidth = 1920.0;
+            refHeight = 1080.0;
+        } else if (video.videoWidth === video.videoHeight) {
+            refWidth = 1080.0;
+            refHeight = 1080.0;
+        }
+    }
 
+    const containerW = container.clientWidth || 360;
+    const containerH = container.clientHeight || 640;
+
+    // Font Size Scaling Math relative to Sequence Reference Height (1920px)
+    const scaleFactorHeight = containerH / refHeight;
+    const scaledFontSize = Math.round(styleState.fontSize * scaleFactorHeight);
+    textBox.style.fontSize = `${Math.max(12, scaledFontSize)}px`;
+
+    // Ensure single horizontal line text display (No unwanted line wrapping!)
+    const currentText = textBox.innerText || "";
+    if (currentText.includes('\n')) {
+        textBox.style.whiteSpace = 'pre-wrap';
+    } else {
+        textBox.style.whiteSpace = 'nowrap';
+    }
+
+    // Premiere Pro Sequence Position Math (Center relative offset)
     if (styleState.posX !== null && styleState.posY !== null && !isNaN(styleState.posX) && !isNaN(styleState.posY)) {
         overlay.style.alignItems = 'flex-start';
         overlay.style.justifyContent = 'flex-start';
         textBox.style.position = 'absolute';
-        textBox.style.left = `${styleState.posX * scaleFactor}px`;
-        textBox.style.top = `${styleState.posY * scaleFactor}px`;
+
+        const scaleX = containerW / refWidth;
+        const scaleY = containerH / refHeight;
+
+        const textW = textBox.offsetWidth || 100;
+        const textH = textBox.offsetHeight || 30;
+
+        const centerX = containerW / 2.0;
+        const centerY = containerH / 2.0;
+
+        const targetX = centerX + (styleState.posX * scaleX) - (textW / 2.0);
+        const targetY = centerY + (styleState.posY * scaleY) - (textH / 2.0);
+
+        textBox.style.left = `${Math.round(targetX)}px`;
+        textBox.style.top = `${Math.round(targetY)}px`;
     } else {
         textBox.style.position = 'relative';
         textBox.style.left = 'auto';
@@ -224,9 +284,7 @@ function applyStyling() {
 
     // Typography
     textBox.style.fontFamily = `"${styleState.fontFamily}", "Montserrat", sans-serif`;
-    const scaledFontSize = Math.round(styleState.fontSize * scaleFactor);
-    textBox.style.fontSize = `${Math.max(12, scaledFontSize)}px`;
-    textBox.style.letterSpacing = `${styleState.tracking * scaleFactor}px`;
+    textBox.style.letterSpacing = `${styleState.tracking * scaleFactorHeight}px`;
     textBox.style.lineHeight = `${styleState.leading}`;
     textBox.style.textAlign = styleState.textAlign;
 
@@ -253,7 +311,7 @@ function applyStyling() {
 
     // Stroke / Webkit Text Stroke (Outer Stroke order)
     if (styleState.strokeEnabled && styleState.strokeWidth > 0) {
-        const scaledStroke = Math.max(1, Math.round(styleState.strokeWidth * scaleFactor));
+        const scaledStroke = Math.max(1, Math.round(styleState.strokeWidth * (containerH / 1080.0)));
         textBox.style.paintOrder = 'stroke fill';
         textBox.style.webkitTextStroke = `${scaledStroke}px ${styleState.strokeColor}`;
     } else {
@@ -263,7 +321,7 @@ function applyStyling() {
     // Background Box
     if (styleState.bgEnabled && styleState.bgOpacity > 0) {
         textBox.style.backgroundColor = hexToRgba(styleState.bgColor, styleState.bgOpacity);
-        const scaledPadding = Math.round(styleState.bgPadding * scaleFactor);
+        const scaledPadding = Math.round(styleState.bgPadding * scaleFactorHeight);
         textBox.style.padding = `${scaledPadding}px`;
         textBox.style.borderRadius = '4px';
     } else {
@@ -271,14 +329,14 @@ function applyStyling() {
         textBox.style.padding = '0px';
     }
 
-    // Drop Shadow
+    // Drop Shadow (Exact match to Premiere Pro shadow status)
     if (styleState.shadowEnabled) {
-        const shadowDist = styleState.shadowDistance * scaleFactor;
-        const shadowBlur = styleState.shadowBlur * scaleFactor;
+        const shadowDist = styleState.shadowDistance * scaleFactorHeight;
+        const shadowBlur = styleState.shadowBlur * scaleFactorHeight;
         const shadowRgba = hexToRgba(styleState.shadowColor, 0.7);
         textBox.style.textShadow = `${shadowDist}px ${shadowDist}px ${shadowBlur}px ${shadowRgba}`;
     } else {
-        textBox.style.textShadow = `0px ${2 * scaleFactor}px ${4 * scaleFactor}px rgba(0,0,0,0.8)`;
+        textBox.style.textShadow = 'none';
     }
 }
 
@@ -295,6 +353,11 @@ function initAccordions() {
 function initPropertiesListeners() {
     initAccordions();
 
+    const btnResetPos = document.getElementById('btnResetPos');
+    if (btnResetPos) {
+        btnResetPos.addEventListener('click', resetPosition);
+    }
+
     const presetBtns = document.querySelectorAll('.btn-preset');
     presetBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -308,6 +371,8 @@ function initPropertiesListeners() {
     const sizeInput = document.getElementById('fontSizeInput');
     const sizeValText = document.getElementById('fontSizeVal');
     if (sizeSlider) {
+        sizeSlider.value = 75;
+        if (sizeValText) sizeValText.textContent = "75.0 px";
         sizeSlider.addEventListener('input', (e) => {
             const val = parseInt(e.target.value);
             if (sizeInput) sizeInput.value = val;
@@ -385,6 +450,8 @@ function initPropertiesListeners() {
 
     const posXInput = document.getElementById('posXInput');
     const posYInput = document.getElementById('posYInput');
+    if (posXInput) posXInput.value = -3;
+    if (posYInput) posYInput.value = 444;
 
     if (posXInput) {
         posXInput.addEventListener('input', (e) => {

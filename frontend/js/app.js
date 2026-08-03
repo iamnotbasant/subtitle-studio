@@ -1,9 +1,10 @@
 /**
- * Main Application Orchestrator, Export Options & Rendered Media Gallery Engine (Premiere Pro 3.0.0 Sync)
+ * Main Application Orchestrator, Zero-Lag Engine & Loading Spinner Manager (v5.0.0)
  */
 
 let currentLoadedVideoPath = "";
 let renderPollInterval = null;
+let isLoopingEnabled = false;
 
 let cachedActiveCaptionText = null;
 let liveOverlayRafPending = false;
@@ -87,6 +88,9 @@ async function loadColabStream(videoPath) {
         return;
     }
 
+    const spinner = document.getElementById('videoLoadingSpinner');
+    if (spinner) spinner.style.display = 'flex';
+
     logExec(`Inspecting video path: ${videoPath}...`, "info");
     try {
         const checkRes = await fetch('/api/check_video', {
@@ -97,6 +101,7 @@ async function loadColabStream(videoPath) {
 
         const data = await checkRes.json();
         if (!data.valid) {
+            if (spinner) spinner.style.display = 'none';
             logExec(`Video check failed: ${data.error}`, "error");
             if (data.available_files && data.available_files.length > 0) {
                 logExec(`Available files in dir: ${data.available_files.join(', ')}`, "info");
@@ -111,6 +116,10 @@ async function loadColabStream(videoPath) {
         player.src = `/api/stream?video_path=${encodeURIComponent(data.path)}`;
         player.load();
         
+        player.oncanplay = () => {
+            if (spinner) spinner.style.display = 'none';
+        };
+
         player.onloadedmetadata = () => {
             const aspectSelect = document.getElementById('aspectRatioSelect');
             const mode = aspectSelect ? aspectSelect.value : 'auto';
@@ -120,6 +129,7 @@ async function loadColabStream(videoPath) {
         };
 
     } catch (err) {
+        if (spinner) spinner.style.display = 'none';
         logExec(`Failed to connect to backend API: ${err}`, "error");
     }
 }
@@ -127,6 +137,9 @@ async function loadColabStream(videoPath) {
 async function triggerGoogleDriveDownload() {
     const urlOrId = prompt("Enter Google Drive File Link or File ID:");
     if (!urlOrId) return;
+
+    const spinner = document.getElementById('videoLoadingSpinner');
+    if (spinner) spinner.style.display = 'flex';
 
     logExec(`Downloading video from Google Drive: ${urlOrId}...`, "info");
     try {
@@ -143,9 +156,11 @@ async function triggerGoogleDriveDownload() {
             if (videoInput) videoInput.value = data.saved_path;
             loadColabStream(data.saved_path);
         } else {
+            if (spinner) spinner.style.display = 'none';
             logExec(`Drive download error: ${data.detail || 'Download failed'}`, "error");
         }
     } catch (err) {
+        if (spinner) spinner.style.display = 'none';
         logExec(`Drive download error: ${err}`, "error");
     }
 }
@@ -336,6 +351,26 @@ async function loadExportsGallery() {
     }
 }
 
+function initHotkeys() {
+    window.addEventListener('keydown', (e) => {
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+        const video = document.getElementById('mainVideoPlayer');
+        if (!video) return;
+
+        if (e.code === 'Space') {
+            e.preventDefault();
+            if (video.paused) video.play(); else video.pause();
+        } else if (e.code === 'ArrowLeft') {
+            e.preventDefault();
+            video.currentTime = Math.max(0, video.currentTime - 1);
+        } else if (e.code === 'ArrowRight') {
+            e.preventDefault();
+            video.currentTime = Math.min(video.duration || 0, video.currentTime + 1);
+        }
+    });
+}
+
 function initOnScreenEditing() {
     const textBox = document.getElementById('subtitleTextBox');
     if (!textBox) return;
@@ -377,6 +412,10 @@ function initAppListeners() {
     const btnDownloadSrt = document.getElementById('btnDownloadSrt');
     const btnDownloadVtt = document.getElementById('btnDownloadVtt');
     const btnDownloadTxt = document.getElementById('btnDownloadTxt');
+    const searchInput = document.getElementById('captionSearchInput');
+    const btnShiftMinus = document.getElementById('btnShiftMinus');
+    const btnShiftPlus = document.getElementById('btnShiftPlus');
+    const btnLoopToggle = document.getElementById('btnLoopToggle');
     const btnUploadFont = document.getElementById('btnUploadFont');
     const fontFileInput = document.getElementById('fontFileInput');
     const aspectSelect = document.getElementById('aspectRatioSelect');
@@ -385,6 +424,25 @@ function initAppListeners() {
     const btnStepBack = document.getElementById('btnStepBack');
     const btnStepForward = document.getElementById('btnStepForward');
     const volumeSlider = document.getElementById('volumeSlider');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => setSearchQuery(e.target.value));
+    }
+    if (btnShiftMinus) {
+        btnShiftMinus.addEventListener('click', () => shiftAllTimestamps(-0.5));
+    }
+    if (btnShiftPlus) {
+        btnShiftPlus.addEventListener('click', () => shiftAllTimestamps(0.5));
+    }
+
+    if (btnLoopToggle && video) {
+        btnLoopToggle.addEventListener('click', () => {
+            isLoopingEnabled = !isLoopingEnabled;
+            video.loop = isLoopingEnabled;
+            btnLoopToggle.classList.toggle('active', isLoopingEnabled);
+            logExec(`Loop playback: ${isLoopingEnabled ? 'ON' : 'OFF'}`, "info");
+        });
+    }
 
     if (btnAiCaptions) {
         btnAiCaptions.addEventListener('click', autoGenerateAiCaptions);
@@ -521,6 +579,7 @@ function initAppListeners() {
 
     renderCaptionsList();
     initOnScreenEditing();
+    initHotkeys();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

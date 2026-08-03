@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premiere Properties Subtitle Studio v3.0.0</title>
+    <title>Premiere Properties Subtitle Studio v5.0.0</title>
 
     <!-- Optimized Preconnect & Non-blocking Async Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,7 +29,7 @@
             <div class="brand-title">
                 <div class="logo-icon"></div>
                 <h1>Subtitle Studio <span>Pro</span></h1>
-                <span class="version-badge" id="appVersionBadge">v3.0.0</span>
+                <span class="version-badge" id="appVersionBadge">v5.0.0</span>
             </div>
             
             <div class="video-input-group">
@@ -72,6 +72,16 @@
                         <button id="btnAddCaption" class="btn-sm btn-accent">+ Add</button>
                     </div>
                 </div>
+
+                <!-- CAPTION SEARCH FILTER & SHIFT TOOLBAR -->
+                <div class="captions-toolbar-row">
+                    <input type="text" id="captionSearchInput" placeholder="🔍 Search captions..." class="pp-input-sm">
+                    <div class="shift-btns">
+                        <button id="btnShiftMinus" class="btn-xs" title="Shift -0.5s">⏮ -0.5s</button>
+                        <button id="btnShiftPlus" class="btn-xs" title="Shift +0.5s">⏭ +0.5s</button>
+                    </div>
+                </div>
+
                 <div class="captions-list-container" id="captionsList">
                     <!-- Dynamic Caption Cards injected here by captions.js -->
                 </div>
@@ -89,8 +99,13 @@
                     <div class="timecode-display" id="timecodeDisplay">00:00:00:00</div>
                 </div>
 
-                <!-- DYNAMIC ASPECT RATIO VIEWPORT CONTAINER -->
+                <!-- DYNAMIC ASPECT RATIO VIEWPORT CONTAINER WITH LOADING SPINNER -->
                 <div class="viewport-wrapper" id="viewportWrapper">
+                    <div class="video-loading-spinner-overlay" id="videoLoadingSpinner" style="display: none;">
+                        <div class="spinner-ring"></div>
+                        <span class="spinner-text">Optimizing video proxy stream...</span>
+                    </div>
+
                     <div class="video-container" id="videoContainer">
                         <video id="mainVideoPlayer" preload="auto" crossorigin="anonymous"></video>
 
@@ -108,6 +123,7 @@
                     <button id="btnPlayPause" class="btn-ctrl">▶</button>
                     <button id="btnStepBack" class="btn-ctrl">⏪ -5s</button>
                     <button id="btnStepForward" class="btn-ctrl">⏩ +5s</button>
+                    <button id="btnLoopToggle" class="btn-ctrl" title="Toggle Loop Playback">🔁 Loop</button>
                     <div class="volume-box">
                         <span>🔊</span>
                         <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1">
@@ -281,12 +297,13 @@
                                     <button class="btn-align" data-align="bottom-right" title="Bottom Right">↘</button>
                                 </div>
 
-                                <!-- PREMIERE PRO BLUE NUMERIC POSITION READOUTS -->
+                                <!-- PREMIERE PRO BLUE NUMERIC POSITION READOUTS & RESET BUTTON -->
                                 <div class="pp-readout-row">
                                     <span class="pp-icon-symbol">↔</span>
                                     <input type="number" id="posXInput" value="-3" class="pp-inline-blue-input" placeholder="0">
                                     <span>,</span>
                                     <input type="number" id="posYInput" value="444" class="pp-inline-blue-input" placeholder="0">
+                                    <button id="btnResetPos" class="btn-xs" style="margin-left: 6px;">↺ Reset</button>
                                 </div>
                             </div>
                         </div>
@@ -396,7 +413,7 @@
                         </div>
                         <div class="pp-accordion-body" id="acc-console">
                             <div class="console-box" id="execConsoleBox">
-                                <div class="console-line info">[System initialized] Premiere Properties Subtitle Studio v3.0.0 Ready.</div>
+                                <div class="console-line info">[System initialized] Premiere Properties Subtitle Studio v5.0.0 Ready.</div>
                             </div>
                         </div>
                     </div>

@@ -16,7 +16,7 @@ if __name__ == "__main__":
     print("🚀 Staging, committing, and pushing to GitHub (iamnotbasant/subtitle-studio)...")
     
     if run_cmd(["git", "add", "."]):
-        commit_msg = "v3.0.0 Major Release: AI Auto-Transcribe Captions, Essential Graphics Presets system, and VTT/TXT/SRT Exporters"
+        commit_msg = "v6.0.0 Premiere Pro 2024 Exact Mathematical Parity: sequence coordinate transform, font size ratio scaling, single-line text display"
         run_cmd(["git", "commit", "-m", commit_msg])
         if run_cmd(["git", "push", "origin", "main"]):
             print("✨ Successfully updated GitHub repository!")

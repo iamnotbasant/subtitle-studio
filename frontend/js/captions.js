@@ -1,5 +1,5 @@
 /**
- * Captions Data State Manager, SRT/VTT/TXT Exporters & Auto AI Transcriber Engine
+ * Captions Data State Manager, SRT/VTT/TXT Exporters & Auto AI Transcriber Engine (v4.0.0)
  */
 
 let captionsData = [
@@ -8,6 +8,7 @@ let captionsData = [
 ];
 
 let activeCaptionId = null;
+let searchQuery = "";
 
 function parseSRTTime(timeStr) {
     const parts = timeStr.trim().replace(',', '.').split(':');
@@ -110,13 +111,38 @@ async function autoGenerateAiCaptions() {
     }
 }
 
+function shiftAllTimestamps(offsetSeconds) {
+    captionsData.forEach(c => {
+        c.start = Math.max(0, parseFloat((c.start + offsetSeconds).toFixed(2)));
+        c.end = Math.max(c.start + 0.1, parseFloat((c.end + offsetSeconds).toFixed(2)));
+    });
+    renderCaptionsList();
+    if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
+    logExec(`Shifted all caption timestamps by ${offsetSeconds > 0 ? '+' : ''}${offsetSeconds}s`, "info");
+}
+
+function setSearchQuery(q) {
+    searchQuery = q.toLowerCase().trim();
+    renderCaptionsList();
+}
+
 function renderCaptionsList() {
     const container = document.getElementById('captionsList');
     if (!container) return;
 
     container.innerHTML = '';
 
-    captionsData.forEach((item, index) => {
+    const visibleItems = captionsData.filter(item => {
+        if (!searchQuery) return true;
+        return item.text.toLowerCase().includes(searchQuery);
+    });
+
+    if (visibleItems.length === 0) {
+        container.innerHTML = '<div class="console-line warn" style="padding:10px;text-align:center;">No captions match your search.</div>';
+        return;
+    }
+
+    visibleItems.forEach((item, index) => {
         const card = document.createElement('div');
         card.className = `caption-card ${item.id === activeCaptionId ? 'active' : ''}`;
         card.dataset.id = item.id;

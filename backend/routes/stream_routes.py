@@ -58,14 +58,14 @@ def check_video(req: CheckVideoRequest):
 @router.get("/stream")
 def stream_video(video_path: str = Query(...)):
     """
-    Generates/serves a fast-start H.264 YUV420p web proxy for smooth browser HTML5 playback.
-    Safely handles spaces in file paths.
+    Generates/serves an ultra-fast H.264 YUV420p web proxy for 0-lag browser HTML5 playback.
+    Optimized with faststart, byte range caching, and low bitrate for Colab tunnels.
     """
     source_path = Path(video_path).resolve()
     if not source_path.exists():
         raise HTTPException(status_code=404, detail=f"Source video file not found: '{video_path}'")
 
-    proxy_filename = f"web_proxy_v5_{source_path.stem}.mp4"
+    proxy_filename = f"web_proxy_v6_{source_path.stem}.mp4"
     proxy_path = TEMP_DIR / proxy_filename
 
     # If proxy doesn't exist or source file is newer, generate fast web-optimized proxy
@@ -73,19 +73,33 @@ def stream_video(video_path: str = Query(...)):
         cmd = [
             "ffmpeg", "-y",
             "-i", str(source_path),
-            "-vf", "scale=-2:720",  # Scale to 720p height for fast streaming
-            "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+            "-vf", "scale=-2:480",  # Scale to 480p height for instant lag-free streaming
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "26", "-pix_fmt", "yuv420p",
             "-movflags", "+faststart",
-            "-c:a", "aac", "-b:a", "128k",
+            "-c:a", "aac", "-b:a", "96k",
             str(proxy_path.resolve())
         ]
         try:
             subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
         except Exception:
             # Fall back to serving direct file if proxy generation fails
-            return FileResponse(str(source_path), media_type="video/mp4")
+            return FileResponse(
+                str(source_path),
+                media_type="video/mp4",
+                headers={
+                    "Accept-Ranges": "bytes",
+                    "Cache-Control": "public, max-age=3600"
+                }
+            )
 
-    return FileResponse(str(proxy_path.resolve()), media_type="video/mp4")
+    return FileResponse(
+        str(proxy_path.resolve()),
+        media_type="video/mp4",
+        headers={
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=3600"
+        }
+    )
 
 @router.post("/download_drive_link")
 def download_drive_link(req: DownloadDriveRequest):
@@ -96,7 +110,6 @@ def download_drive_link(req: DownloadDriveRequest):
         output_path = TEMP_DIR / req.output_filename
         url = req.url_or_id
         
-        # Extract ID if a full URL was supplied
         if "drive.google.com" in url:
             if "id=" in url:
                 file_id = url.split("id=")[1].split("&")[0]
