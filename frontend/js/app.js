@@ -1,5 +1,5 @@
 /**
- * Main Application Orchestrator, Zero-Lag Engine & Loading Spinner Manager (v5.0.0)
+ * Main Application Orchestrator, Hotkeys, Dynamic @font-face Injector & History Manager (v8.0.0)
  */
 
 let currentLoadedVideoPath = "";
@@ -356,6 +356,28 @@ function initHotkeys() {
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
 
         const video = document.getElementById('mainVideoPlayer');
+
+        // Ctrl + Z = Undo
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            if (typeof undo === 'function') undo();
+            return;
+        }
+
+        // Ctrl + Y or Ctrl + Shift + Z = Redo
+        if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
+            e.preventDefault();
+            if (typeof redo === 'function') redo();
+            return;
+        }
+
+        // K or C = Cut / Split clip at playhead
+        if (e.code === 'KeyK' || e.code === 'KeyC') {
+            e.preventDefault();
+            if (typeof splitCaptionAtPlayhead === 'function') splitCaptionAtPlayhead();
+            return;
+        }
+
         if (!video) return;
 
         if (e.code === 'Space') {
@@ -386,6 +408,7 @@ function initOnScreenEditing() {
         const video = document.getElementById('mainVideoPlayer');
         const activeCap = getActiveCaptionForTime(video ? video.currentTime : 0);
         if (activeCap) {
+            if (typeof pushHistoryState === 'function') pushHistoryState();
             activeCap.text = textBox.innerText;
             const activeSubInput = document.getElementById('activeSubTextInput');
             if (activeSubInput) activeSubInput.value = textBox.innerText;
@@ -424,6 +447,13 @@ function initAppListeners() {
     const btnStepBack = document.getElementById('btnStepBack');
     const btnStepForward = document.getElementById('btnStepForward');
     const volumeSlider = document.getElementById('volumeSlider');
+    const btnUndo = document.getElementById('btnUndo');
+    const btnRedo = document.getElementById('btnRedo');
+    const btnSplitPlayhead = document.getElementById('btnSplitPlayhead');
+
+    if (btnUndo) btnUndo.addEventListener('click', undo);
+    if (btnRedo) btnRedo.addEventListener('click', redo);
+    if (btnSplitPlayhead) btnSplitPlayhead.addEventListener('click', splitCaptionAtPlayhead);
 
     if (searchInput) {
         searchInput.addEventListener('input', (e) => setSearchQuery(e.target.value));
@@ -521,23 +551,39 @@ function initAppListeners() {
                 const formData = new FormData();
                 formData.append('file', file);
                 try {
+                    logExec(`Uploading custom font file: ${file.name}...`, "info");
                     const res = await fetch('/api/upload_font', {
                         method: 'POST',
                         body: formData
                     });
                     const data = await res.json();
-                    if (res.ok) {
-                        logExec(`Uploaded custom font: ${file.name}`, "success");
+                    if (res.ok && data.font_metadata) {
+                        const family = data.font_metadata.family;
+                        logExec(`Custom font '${family}' registered & parsed successfully!`, "success");
+
+                        // Dynamically inject @font-face rule into document head so browser canvas loads custom font
+                        const fontStyleRule = document.createElement('style');
+                        fontStyleRule.textContent = `
+                            @font-face {
+                                font-family: '${family}';
+                                src: url('/api/custom_fonts/${encodeURIComponent(data.font_metadata.file_name)}');
+                            }
+                        `;
+                        document.head.appendChild(fontStyleRule);
+
                         const fontSelect = document.getElementById('fontFamilySelect');
-                        if (fontSelect && data.font_metadata) {
+                        if (fontSelect) {
                             const opt = document.createElement('option');
-                            opt.value = data.font_metadata.family;
-                            opt.textContent = data.font_metadata.family;
+                            opt.value = family;
+                            opt.textContent = `⭐ ${family} (Custom)`;
                             fontSelect.appendChild(opt);
-                            fontSelect.value = data.font_metadata.family;
-                            styleState.fontFamily = data.font_metadata.family;
-                            if (typeof applyStyling === 'function') applyStyling();
+                            fontSelect.value = family;
                         }
+
+                        styleState.fontFamily = family;
+                        if (typeof applyStyling === 'function') applyStyling();
+                    } else {
+                        logExec(`Font upload error: ${data.detail || 'Failed to register font'}`, "error");
                     }
                 } catch (err) {
                     logExec(`Font upload failed: ${err}`, "error");

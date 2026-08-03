@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premiere Properties Subtitle Studio v6.0.0</title>
+    <title>Premiere Properties Subtitle Studio v8.0.0</title>
 
     <!-- Optimized Preconnect & Non-blocking Async Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,7 +29,7 @@
             <div class="brand-title">
                 <div class="logo-icon"></div>
                 <h1>Subtitle Studio <span>Pro</span></h1>
-                <span class="version-badge" id="appVersionBadge">v6.0.0</span>
+                <span class="version-badge" id="appVersionBadge">v8.0.0</span>
             </div>
             
             <div class="video-input-group">
@@ -39,6 +39,12 @@
                 </div>
                 <button id="btnLoadVideo" class="btn btn-secondary">Load Video</button>
                 <button id="btnDriveDownload" class="btn btn-outline">📥 Google Drive Link</button>
+            </div>
+
+            <!-- UNDO / REDO BUTTONS -->
+            <div class="history-actions-box">
+                <button id="btnUndo" class="btn-xs" title="Undo (Ctrl+Z)" disabled>↩️ Undo</button>
+                <button id="btnRedo" class="btn-xs" title="Redo (Ctrl+Y)" disabled>↪️ Redo</button>
             </div>
 
             <!-- ASPECT RATIO SELECTOR -->
@@ -133,10 +139,13 @@
                 <!-- DEDICATED TIMELINE TRACK -->
                 <div class="timeline-container" id="timelineContainer">
                     <div class="timeline-toolbar">
-                        <span class="toolbar-label">Timeline Tracks</span>
+                        <div class="timeline-tools-left">
+                            <span class="toolbar-label">Timeline Tracks</span>
+                            <button id="btnSplitPlayhead" class="btn-xs" title="Cut/Split active subtitle clip at playhead time">✂️ Cut at Playhead</button>
+                        </div>
                         <div class="zoom-controls">
-                            <span>🔍 Zoom:</span>
-                            <input type="range" id="timelineZoom" min="100" max="1000" value="100">
+                            <span>🔍 Zoom (Ctrl+Wheel):</span>
+                            <input type="range" id="timelineZoom" min="50" max="1000" value="100">
                             <span id="zoomVal">100%</span>
                         </div>
                     </div>
@@ -227,7 +236,7 @@
                                     <option value="Black">Black</option>
                                 </select>
 
-                                <button id="btnUploadFont" class="btn-sm btn-icon" title="Upload Custom Font">⬆️ Custom</button>
+                                <button id="btnUploadFont" class="btn-sm btn-icon" title="Upload Custom Font">⬆️ Custom Font</button>
                                 <input type="file" id="fontFileInput" accept=".ttf,.otf" style="display:none;">
                             </div>
 
@@ -413,7 +422,7 @@
                         </div>
                         <div class="pp-accordion-body" id="acc-console">
                             <div class="console-box" id="execConsoleBox">
-                                <div class="console-line info">[System initialized] Premiere Properties Subtitle Studio v6.0.0 Ready.</div>
+                                <div class="console-line info">[System initialized] Premiere Properties Subtitle Studio v8.0.0 Ready.</div>
                             </div>
                         </div>
                     </div>

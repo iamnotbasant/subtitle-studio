@@ -110,13 +110,21 @@ body.apple-dark-theme {
     white-space: nowrap;
 }
 
+/* HISTORY ACTIONS (UNDO / REDO) */
+.history-actions-box {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
 /* VIDEO INPUT GROUP */
 .video-input-group {
     display: flex;
     align-items: center;
     gap: 8px;
     flex: 1;
-    max-width: 460px;
+    max-width: 420px;
 }
 
 .input-field {
@@ -251,6 +259,11 @@ body.apple-dark-theme {
 
 .btn-xs:hover {
     color: var(--text-main);
+}
+
+.btn-xs:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 /* WORKSPACE GRID (3-COLUMN STUDIO LAYOUT) */
@@ -405,13 +418,22 @@ body.apple-dark-theme {
     text-align: center;
 }
 
-.card-delete-btn {
+.card-actions-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.card-split-btn, .card-delete-btn {
     background: transparent;
     border: none;
-    color: #ff453a;
+    color: #9e9e9e;
     cursor: pointer;
     font-size: 11px;
 }
+
+.card-split-btn:hover { color: var(--accent-blue); }
+.card-delete-btn:hover { color: #ff453a; }
 
 .caption-text-area {
     width: 100%;

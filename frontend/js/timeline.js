@@ -1,5 +1,5 @@
 /**
- * Hardware-Accelerated Interactive Timeline Track Engine (Zero Playback Lag)
+ * Hardware-Accelerated Interactive Timeline Engine (Smooth Zoom, Draggable Handles & Cut Tools) v8.0.0
  */
 
 let zoomScale = 100;
@@ -16,11 +16,14 @@ let cachedTimecodeNode = null;
 let cachedVideoNode = null;
 
 function secondsToPixels(sec) {
-    return (sec * zoomScale) / 10;
+    // Smooth linear mapping: 100% zoom = 40px per second
+    const pps = (zoomScale / 100.0) * 40.0;
+    return sec * pps;
 }
 
 function pixelsToSeconds(px) {
-    return (px * 10) / zoomScale;
+    const pps = (zoomScale / 100.0) * 40.0;
+    return pps > 0 ? px / pps : 0;
 }
 
 function getPlayheadNodes() {
@@ -43,7 +46,7 @@ function renderTimelineTrack() {
     ruler.style.width = `${Math.max(totalWidthPx, 800)}px`;
 
     ruler.innerHTML = '';
-    const stepSec = zoomScale > 300 ? 1 : (zoomScale > 150 ? 2 : 5);
+    const stepSec = zoomScale > 300 ? 1 : (zoomScale > 150 ? 2 : (zoomScale > 80 ? 5 : 10));
     for (let sec = 0; sec <= totalDuration; sec += stepSec) {
         const leftPx = secondsToPixels(sec);
         const tick = document.createElement('div');
@@ -66,18 +69,19 @@ function renderTimelineTrack() {
         clip.dataset.id = item.id;
 
         const leftPx = secondsToPixels(item.start);
-        const widthPx = Math.max(16, secondsToPixels(item.end - item.start));
+        const widthPx = Math.max(20, secondsToPixels(item.end - item.start));
 
         clip.style.left = `${leftPx}px`;
         clip.style.width = `${widthPx}px`;
 
         clip.innerHTML = `
-            <div class="trim-handle left-handle" data-id="${item.id}" data-edge="left"></div>
+            <div class="trim-handle left-handle" data-id="${item.id}" data-edge="left" title="Drag to trim start time"></div>
             <div class="clip-text">${item.text}</div>
-            <div class="trim-handle right-handle" data-id="${item.id}" data-edge="right"></div>
+            <div class="trim-handle right-handle" data-id="${item.id}" data-edge="right" title="Drag to trim end time"></div>
         `;
 
         clip.addEventListener('mousedown', (e) => {
+            if (typeof pushHistoryState === 'function') pushHistoryState();
             if (e.target.classList.contains('trim-handle')) {
                 isTrimmingClip = true;
                 currentTrimEdge = e.target.dataset.edge;
@@ -90,6 +94,17 @@ function renderTimelineTrack() {
             dragOriginalEnd = item.end;
             setActiveCaption(item.id);
             e.stopPropagation();
+        });
+
+        // Context Menu for Cut / Delete
+        clip.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const action = prompt(`Clip Action for "${item.text}":\n1: Split / Cut Line\n2: Delete Clip\n(Type 1 or 2):`, "1");
+            if (action === "1") {
+                splitCaptionLine(item.id);
+            } else if (action === "2") {
+                deleteCaptionLine(item.id);
+            }
         });
 
         track.appendChild(clip);
@@ -105,7 +120,6 @@ function updatePlayheadPosition() {
     const currTime = video.currentTime || 0;
     const leftPx = secondsToPixels(currTime);
 
-    // GPU compositor accelerated positioning (0% reflow lag)
     playhead.style.transform = `translate3d(${leftPx}px, 0, 0)`;
 
     if (timecode) {
@@ -121,6 +135,7 @@ function initTimelineEvents() {
     const zoomInput = document.getElementById('timelineZoom');
     const zoomVal = document.getElementById('zoomVal');
     const ruler = document.getElementById('timeRuler');
+    const trackArea = document.getElementById('timelineTrackArea');
     const { video } = getPlayheadNodes();
 
     if (zoomInput) {
@@ -129,6 +144,20 @@ function initTimelineEvents() {
             if (zoomVal) zoomVal.textContent = `${zoomScale}%`;
             renderTimelineTrack();
         });
+    }
+
+    // Ctrl + Mouse Wheel Smooth Zoom Listener
+    if (trackArea) {
+        trackArea.addEventListener('wheel', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -15 : 15;
+                zoomScale = Math.max(50, Math.min(1000, zoomScale + delta));
+                if (zoomInput) zoomInput.value = zoomScale;
+                if (zoomVal) zoomVal.textContent = `${zoomScale}%`;
+                renderTimelineTrack();
+            }
+        }, { passive: false });
     }
 
     if (ruler) {
