@@ -1,7 +1,7 @@
-/* Premiere Properties Subtitle Studio - Timeline Track Stylesheet */
+/* Premiere Properties Subtitle Studio - Hardware Accelerated Timeline Stylesheet */
 
 .timeline-container {
-    height: 140px;
+    height: 135px;
     background: var(--bg-panel);
     border-top: 1px solid var(--border-color);
     display: flex;
@@ -11,7 +11,7 @@
 }
 
 .timeline-toolbar {
-    height: 28px;
+    height: 26px;
     background: var(--bg-card);
     border-bottom: 1px solid var(--border-color);
     padding: 0 12px;
@@ -25,31 +25,31 @@
 .zoom-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .zoom-controls input[type="range"] {
-    width: 90px;
+    width: 80px;
 }
 
 .timeline-track-area {
     position: relative;
     flex: 1;
-    background: #111216;
+    background: #0d0d0f;
     overflow-x: auto;
     overflow-y: hidden;
+    transform: translate3d(0, 0, 0);
 }
 
 /* TIME RULER */
 .time-ruler {
     height: 20px;
-    background: #18191e;
+    background: #141417;
     border-bottom: 1px solid var(--border-color);
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    pointer-events: auto;
     cursor: pointer;
 }
 
@@ -61,7 +61,7 @@
 }
 
 .ruler-tick.major {
-    height: 12px;
+    height: 10px;
     background: var(--text-muted);
 }
 
@@ -77,37 +77,38 @@
 /* TRACK ROW */
 .track-row {
     position: absolute;
-    top: 24px;
+    top: 22px;
     left: 0;
-    height: 50px;
+    height: 48px;
     min-width: 100%;
 }
 
 .timeline-clip {
     position: absolute;
-    height: 42px;
-    background: linear-gradient(135deg, #1d3557, #457b9d);
-    border: 1px solid var(--accent-cyan);
+    height: 40px;
+    background: linear-gradient(135deg, #0a84ff, #0056b3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
     top: 4px;
     cursor: grab;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 10px;
+    padding: 0 8px;
     overflow: hidden;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-    transition: box-shadow 0.15s;
+    transform: translate3d(0, 0, 0);
+    will-change: transform, left, width;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
 
 .timeline-clip:active {
     cursor: grabbing;
-    box-shadow: 0 0 12px var(--accent-glow);
+    box-shadow: 0 0 14px var(--accent-glow);
 }
 
 .timeline-clip.active {
     border-color: var(--accent-pink);
-    background: linear-gradient(135deg, #7209b7, #3a0ca3);
+    background: linear-gradient(135deg, #ff375f, #bf5af2);
 }
 
 .clip-text {
@@ -125,14 +126,14 @@
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 8px;
+    width: 7px;
     background: rgba(255, 255, 255, 0.3);
     cursor: ew-resize;
     transition: background 0.15s;
 }
 
 .trim-handle:hover {
-    background: var(--accent-cyan);
+    background: var(--accent-green);
 }
 
 .trim-handle.left-handle {
@@ -154,9 +155,11 @@
     bottom: 0;
     left: 0;
     width: 2px;
-    background: var(--accent-pink);
+    background: var(--accent-green);
     z-index: 10;
     pointer-events: none;
+    transform: translate3d(0, 0, 0);
+    will-change: transform, left;
 }
 
 .playhead-head {
@@ -165,12 +168,12 @@
     left: -5px;
     width: 12px;
     height: 12px;
-    background: var(--accent-pink);
+    background: var(--accent-green);
     clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 
 .playhead-line {
     width: 2px;
     height: 100%;
-    background: var(--accent-pink);
+    background: var(--accent-green);
 }

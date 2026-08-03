@@ -1,9 +1,10 @@
 /**
- * Essential Graphics Property Controls & Subtitle CSS Overlay Applier
+ * Pixel-Perfect Premiere Pro Essential Graphics State Manager & 60fps Overlay Scaling Engine
  */
 
 const styleState = {
     fontFamily: 'Montserrat',
+    fontStyle: 'Bold',
     fontSize: 48,
     tracking: 0,
     leading: 1.2,
@@ -13,20 +14,32 @@ const styleState = {
     smallCaps: false,
     underline: false,
     strikethrough: false,
+    superscript: false,
     subscript: false,
     alignment: 'bottom-center',
+    textAlign: 'center',
+    posX: null,
+    posY: null,
+    fillEnabled: true,
     primaryColor: '#FFFFFF',
     primaryOpacity: 1.0,
-    strokeWidth: 2,
+    strokeEnabled: true,
     strokeColor: '#000000',
-    bgPadding: 10,
+    strokeWidth: 2,
+    strokeType: 'Outer',
+    bgEnabled: false,
     bgColor: '#000000',
     bgOpacity: 0.0,
+    bgPadding: 10,
+    shadowEnabled: false,
     shadowColor: '#000000',
+    shadowDistance: 4,
     shadowBlur: 4,
     shadowOffsetX: 2,
     shadowOffsetY: 2
 };
+
+let rafPending = false;
 
 function hexToRgba(hex, opacity = 1.0) {
     let clean = hex.replace('#', '');
@@ -39,63 +52,102 @@ function hexToRgba(hex, opacity = 1.0) {
     return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
+function requestApplyStyling() {
+    if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(() => {
+            applyStyling();
+            rafPending = false;
+        });
+    }
+}
+
 function applyStyling() {
     const overlay = document.getElementById('subtitleOverlay');
     const textBox = document.getElementById('subtitleTextBox');
-    if (!overlay || !textBox) return;
+    const container = document.getElementById('videoContainer');
+    if (!overlay || !textBox || !container) return;
 
-    // Alignment Matrix Flex Placement
-    switch (styleState.alignment) {
-        case 'top-left':
-            overlay.style.alignItems = 'flex-start';
-            overlay.style.justifyContent = 'flex-start';
-            break;
-        case 'top-center':
-            overlay.style.alignItems = 'flex-start';
-            overlay.style.justifyContent = 'center';
-            break;
-        case 'top-right':
-            overlay.style.alignItems = 'flex-start';
-            overlay.style.justifyContent = 'flex-content';
-            break;
-        case 'middle-left':
-            overlay.style.alignItems = 'center';
-            overlay.style.justifyContent = 'flex-start';
-            break;
-        case 'center':
-        case 'middle-center':
-            overlay.style.alignItems = 'center';
-            overlay.style.justifyContent = 'center';
-            break;
-        case 'middle-right':
-            overlay.style.alignItems = 'center';
-            overlay.style.justifyContent = 'flex-end';
-            break;
-        case 'bottom-left':
-            overlay.style.alignItems = 'flex-end';
-            overlay.style.justifyContent = 'flex-start';
-            break;
-        case 'bottom-right':
-            overlay.style.alignItems = 'flex-end';
-            overlay.style.justifyContent = 'flex-end';
-            break;
-        case 'bottom-center':
-        default:
-            overlay.style.alignItems = 'flex-end';
-            overlay.style.justifyContent = 'center';
-            break;
+    // Viewport scaling factor relative to 1080p baseline
+    const containerHeight = container.clientHeight || 720;
+    const scaleFactor = Math.max(0.3, containerHeight / 1080.0);
+
+    // 3x3 Canvas Zone Alignment Placement
+    if (styleState.posX !== null && styleState.posY !== null && !isNaN(styleState.posX) && !isNaN(styleState.posY)) {
+        overlay.style.alignItems = 'flex-start';
+        overlay.style.justifyContent = 'flex-start';
+        textBox.style.position = 'absolute';
+        textBox.style.left = `${styleState.posX * scaleFactor}px`;
+        textBox.style.top = `${styleState.posY * scaleFactor}px`;
+    } else {
+        textBox.style.position = 'relative';
+        textBox.style.left = 'auto';
+        textBox.style.top = 'auto';
+        
+        switch (styleState.alignment) {
+            case 'top-left':
+                overlay.style.alignItems = 'flex-start';
+                overlay.style.justifyContent = 'flex-start';
+                break;
+            case 'top-center':
+                overlay.style.alignItems = 'flex-start';
+                overlay.style.justifyContent = 'center';
+                break;
+            case 'top-right':
+                overlay.style.alignItems = 'flex-start';
+                overlay.style.justifyContent = 'flex-end';
+                break;
+            case 'middle-left':
+                overlay.style.alignItems = 'center';
+                overlay.style.justifyContent = 'flex-start';
+                break;
+            case 'center':
+            case 'middle-center':
+                overlay.style.alignItems = 'center';
+                overlay.style.justifyContent = 'center';
+                break;
+            case 'middle-right':
+                overlay.style.alignItems = 'center';
+                overlay.style.justifyContent = 'flex-end';
+                break;
+            case 'bottom-left':
+                overlay.style.alignItems = 'flex-end';
+                overlay.style.justifyContent = 'flex-start';
+                break;
+            case 'bottom-right':
+                overlay.style.alignItems = 'flex-end';
+                overlay.style.justifyContent = 'flex-end';
+                break;
+            case 'bottom-center':
+            default:
+                overlay.style.alignItems = 'flex-end';
+                overlay.style.justifyContent = 'center';
+                break;
+        }
     }
 
-    // Text Properties
+    // Typography
     textBox.style.fontFamily = `"${styleState.fontFamily}", sans-serif`;
-    textBox.style.fontSize = `${styleState.fontSize}px`;
-    textBox.style.letterSpacing = `${styleState.tracking}px`;
+    const scaledFontSize = Math.round(styleState.fontSize * scaleFactor);
+    textBox.style.fontSize = `${Math.max(12, scaledFontSize)}px`;
+    textBox.style.letterSpacing = `${styleState.tracking * scaleFactor}px`;
     textBox.style.lineHeight = `${styleState.leading}`;
-    textBox.style.color = hexToRgba(styleState.primaryColor, styleState.primaryOpacity);
+    textBox.style.textAlign = styleState.textAlign;
 
-    // Faux Formatting
-    textBox.style.fontWeight = styleState.bold ? '800' : '400';
-    textBox.style.fontStyle = styleState.italic ? 'italic' : 'normal';
+    // Fill Color
+    if (styleState.fillEnabled) {
+        textBox.style.color = hexToRgba(styleState.primaryColor, styleState.primaryOpacity);
+    } else {
+        textBox.style.color = 'transparent';
+    }
+
+    // Faux Formatting & Font Styles
+    const fontStyleLower = styleState.fontStyle.toLowerCase();
+    const isBoldStyle = styleState.bold || fontStyleLower === 'bold' || fontStyleLower === 'black';
+    const isItalicStyle = styleState.italic || fontStyleLower === 'italic';
+
+    textBox.style.fontWeight = isBoldStyle ? (fontStyleLower === 'black' ? '900' : '800') : '400';
+    textBox.style.fontStyle = isItalicStyle ? 'italic' : 'normal';
     textBox.style.textTransform = styleState.allCaps ? 'uppercase' : (styleState.smallCaps ? 'capitalize' : 'none');
 
     let textDecoration = [];
@@ -104,65 +156,138 @@ function applyStyling() {
     textBox.style.textDecoration = textDecoration.length > 0 ? textDecoration.join(' ') : 'none';
 
     // Stroke / Webkit Text Stroke
-    if (styleState.strokeWidth > 0) {
-        textBox.style.webkitTextStroke = `${styleState.strokeWidth}px ${styleState.strokeColor}`;
+    if (styleState.strokeEnabled && styleState.strokeWidth > 0) {
+        const scaledStroke = Math.max(1, Math.round(styleState.strokeWidth * scaleFactor));
+        textBox.style.webkitTextStroke = `${scaledStroke}px ${styleState.strokeColor}`;
     } else {
         textBox.style.webkitTextStroke = '0px transparent';
     }
 
     // Background Box
-    if (styleState.bgOpacity > 0) {
+    if (styleState.bgEnabled && styleState.bgOpacity > 0) {
         textBox.style.backgroundColor = hexToRgba(styleState.bgColor, styleState.bgOpacity);
-        textBox.style.padding = `${styleState.bgPadding}px`;
+        const scaledPadding = Math.round(styleState.bgPadding * scaleFactor);
+        textBox.style.padding = `${scaledPadding}px`;
+        textBox.style.borderRadius = '4px';
     } else {
         textBox.style.backgroundColor = 'transparent';
         textBox.style.padding = '0px';
     }
 
     // Drop Shadow
-    if (styleState.shadowOffsetX !== 0 || styleState.shadowOffsetY !== 0 || styleState.shadowBlur > 0) {
+    if (styleState.shadowEnabled) {
+        const shadowDist = styleState.shadowDistance * scaleFactor;
+        const shadowBlur = styleState.shadowBlur * scaleFactor;
         const shadowRgba = hexToRgba(styleState.shadowColor, 0.7);
-        textBox.style.textShadow = `${styleState.shadowOffsetX}px ${styleState.shadowOffsetY}px ${styleState.shadowBlur}px ${shadowRgba}`;
+        textBox.style.textShadow = `${shadowDist}px ${shadowDist}px ${shadowBlur}px ${shadowRgba}`;
     } else {
         textBox.style.textShadow = 'none';
     }
 }
 
 function initPropertiesListeners() {
-    // Inputs mapping
+    // Font Size Slider <-> Input Sync
+    const sizeSlider = document.getElementById('fontSizeSlider');
+    const sizeInput = document.getElementById('fontSizeInput');
+    if (sizeSlider && sizeInput) {
+        sizeSlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            sizeInput.value = val;
+            styleState.fontSize = val;
+            requestApplyStyling();
+        });
+
+        sizeInput.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value) || 12;
+            sizeSlider.value = val;
+            styleState.fontSize = val;
+            requestApplyStyling();
+        });
+    }
+
+    // Direct Input Bindings
     const bindings = [
         { id: 'fontFamilySelect', prop: 'fontFamily' },
-        { id: 'fontSizeInput', prop: 'fontSize', isNum: true },
+        { id: 'fontStyleSelect', prop: 'fontStyle' },
         { id: 'trackingInput', prop: 'tracking', isNum: true },
         { id: 'leadingInput', prop: 'leading', isFloat: true },
         { id: 'primaryColorInput', prop: 'primaryColor' },
         { id: 'primaryOpacityInput', prop: 'primaryOpacity', isFloat: true },
-        { id: 'strokeWidthInput', prop: 'strokeWidth', isNum: true },
         { id: 'strokeColorInput', prop: 'strokeColor' },
-        { id: 'bgPaddingInput', prop: 'bgPadding', isNum: true },
+        { id: 'strokeWidthInput', prop: 'strokeWidth', isNum: true },
+        { id: 'strokeTypeSelect', prop: 'strokeType' },
         { id: 'bgColorInput', prop: 'bgColor' },
         { id: 'bgOpacityInput', prop: 'bgOpacity', isFloat: true },
+        { id: 'bgPaddingInput', prop: 'bgPadding', isNum: true },
         { id: 'shadowColorInput', prop: 'shadowColor' },
-        { id: 'shadowBlurInput', prop: 'shadowBlur', isNum: true },
-        { id: 'shadowOffsetXInput', prop: 'shadowOffsetX', isNum: true },
-        { id: 'shadowOffsetYInput', prop: 'shadowOffsetY', isNum: true }
+        { id: 'shadowDistanceInput', prop: 'shadowDistance', isNum: true },
+        { id: 'shadowBlurInput', prop: 'shadowBlur', isNum: true }
     ];
 
     bindings.forEach(b => {
         const elem = document.getElementById(b.id);
         if (elem) {
-            const evtType = (elem.type === 'range' || elem.type === 'color' || elem.tagName === 'TEXTAREA') ? 'input' : 'change';
+            const evtType = (elem.type === 'range' || elem.type === 'color') ? 'input' : 'change';
             elem.addEventListener(evtType, (e) => {
                 let val = e.target.value;
                 if (b.isNum) val = parseInt(val) || 0;
                 if (b.isFloat) val = parseFloat(val) || 0.0;
                 styleState[b.prop] = val;
-                applyStyling();
+                requestApplyStyling();
             });
         }
     });
 
-    // 7 Faux Toggle Buttons
+    // Checkbox Toggles
+    const toggleBindings = [
+        { id: 'fillToggle', prop: 'fillEnabled' },
+        { id: 'strokeToggle', prop: 'strokeEnabled' },
+        { id: 'bgToggle', prop: 'bgEnabled' },
+        { id: 'shadowToggle', prop: 'shadowEnabled' }
+    ];
+
+    toggleBindings.forEach(t => {
+        const chk = document.getElementById(t.id);
+        if (chk) {
+            chk.addEventListener('change', (e) => {
+                styleState[t.prop] = e.target.checked;
+                requestApplyStyling();
+            });
+        }
+    });
+
+    // Pos X & Pos Y Inputs
+    const posXInput = document.getElementById('posXInput');
+    const posYInput = document.getElementById('posYInput');
+
+    if (posXInput) {
+        posXInput.addEventListener('input', (e) => {
+            const val = e.target.value.trim();
+            styleState.posX = val === "" ? null : parseInt(val);
+            requestApplyStyling();
+        });
+    }
+
+    if (posYInput) {
+        posYInput.addEventListener('input', (e) => {
+            const val = e.target.value.trim();
+            styleState.posY = val === "" ? null : parseInt(val);
+            requestApplyStyling();
+        });
+    }
+
+    // Paragraph Alignment Buttons
+    const paraBtns = document.querySelectorAll('.btn-para-align');
+    paraBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            paraBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            styleState.textAlign = btn.dataset.align;
+            requestApplyStyling();
+        });
+    });
+
+    // 8 Faux Toggle Buttons
     const fauxMap = [
         { id: 'btnFauxBold', prop: 'bold' },
         { id: 'btnFauxItalic', prop: 'italic' },
@@ -170,6 +295,7 @@ function initPropertiesListeners() {
         { id: 'btnFauxSmallCaps', prop: 'smallCaps' },
         { id: 'btnFauxUnderline', prop: 'underline' },
         { id: 'btnFauxStrikethrough', prop: 'strikethrough' },
+        { id: 'btnFauxSuperscript', prop: 'superscript' },
         { id: 'btnFauxSubscript', prop: 'subscript' }
     ];
 
@@ -179,21 +305,29 @@ function initPropertiesListeners() {
             btn.addEventListener('click', () => {
                 styleState[f.prop] = !styleState[f.prop];
                 btn.classList.toggle('active', styleState[f.prop]);
-                applyStyling();
+                requestApplyStyling();
             });
         }
     });
 
-    // 3x3 Alignment Buttons Grid
+    // 3x3 Alignment Zone Grid Matrix
     const alignBtns = document.querySelectorAll('.btn-align');
     alignBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             alignBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             styleState.alignment = btn.dataset.align;
-            applyStyling();
+            // Clear manual pos X/Y on zone click
+            styleState.posX = null;
+            styleState.posY = null;
+            if (posXInput) posXInput.value = "";
+            if (posYInput) posYInput.value = "";
+            requestApplyStyling();
         });
     });
+
+    // Recalculate overlay on window resize
+    window.addEventListener('resize', requestApplyStyling);
 
     applyStyling();
 }

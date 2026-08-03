@@ -3,24 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premiere Properties Subtitle Studio v1.1.0</title>
-    <!-- Modern Typography -->
+    <title>Premiere Properties Subtitle Studio v1.2.0</title>
+
+    <!-- Apple System Fonts & Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Modular CSS Stylesheets -->
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/timeline.css">
 </head>
-<body class="dark-theme">
+<body class="apple-dark-theme">
     <div class="app-container">
-        <!-- TOP NAVBAR -->
-        <header class="top-navbar">
+
+        <!-- APPLE-STYLE TOP NAVBAR -->
+        <header class="top-navbar glass-panel">
             <div class="brand-title">
-                <div class="logo-icon">🎬</div>
-                <h1>Premiere Properties <span>Subtitle Studio</span></h1>
-                <span class="version-badge" id="appVersionBadge">v1.1.0</span>
+                <div class="logo-icon"></div>
+                <h1>Subtitle Studio <span>Pro</span></h1>
+                <span class="version-badge" id="appVersionBadge">v1.2.0</span>
             </div>
             
             <div class="video-input-group">
@@ -32,18 +34,29 @@
                 <button id="btnDriveDownload" class="btn btn-outline">📥 Google Drive Link</button>
             </div>
 
+            <!-- ASPECT RATIO SELECTOR -->
+            <div class="aspect-ratio-selector-box">
+                <label for="aspectRatioSelect">Aspect Ratio:</label>
+                <select id="aspectRatioSelect" class="input-select-sm">
+                    <option value="auto" selected>Auto Detect</option>
+                    <option value="9:16">9:16 (Reel / Shorts)</option>
+                    <option value="16:9">16:9 (Landscape)</option>
+                    <option value="1:1">1:1 (Square)</option>
+                </select>
+            </div>
+
             <div class="header-actions">
                 <button id="btnExportRender" class="btn btn-primary btn-glow">🚀 Export Video & XML</button>
             </div>
         </header>
 
-        <!-- MAIN 3-COLUMN LAYOUT SYSTEM -->
+        <!-- MAIN 3-COLUMN STUDIO LAYOUT SYSTEM -->
         <main class="workspace-grid">
             
             <!-- LEFT COLUMN: CAPTIONS MANAGER -->
-            <section class="panel captions-panel">
+            <section class="panel captions-panel glass-panel">
                 <div class="panel-header">
-                    <h2><span class="panel-icon">📝</span> Captions & Text</h2>
+                    <h2><span class="panel-icon">📝</span> Captions & Subtitles</h2>
                     <div class="panel-actions">
                         <button id="btnImportSrt" class="btn-sm">Import .SRT</button>
                         <input type="file" id="srtFileInput" accept=".srt" style="display:none;">
@@ -55,21 +68,23 @@
                 </div>
             </section>
 
-            <!-- MIDDLE COLUMN: VIDEO PREVIEW CANVAS & TIMELINE TRACK -->
-            <section class="panel preview-panel">
+            <!-- MIDDLE COLUMN: DYNAMIC VIEWPORT & TIMELINE -->
+            <section class="panel preview-panel glass-panel">
                 <div class="panel-header">
                     <h2><span class="panel-icon">👁️</span> Program Monitor</h2>
                     <div class="timecode-display" id="timecodeDisplay">00:00:00:00</div>
                 </div>
 
-                <!-- VIDEO PLAYER CONTAINER WITH LIVE OVERLAY -->
-                <div class="video-container" id="videoContainer">
-                    <video id="mainVideoPlayer" preload="auto" crossorigin="anonymous"></video>
+                <!-- DYNAMIC ASPECT RATIO VIEWPORT CONTAINER -->
+                <div class="viewport-wrapper" id="viewportWrapper">
+                    <div class="video-container" id="videoContainer">
+                        <video id="mainVideoPlayer" preload="auto" crossorigin="anonymous"></video>
 
-                    <!-- INTERACTIVE LIVE SUBTITLE CANVAS OVERLAY -->
-                    <div class="subtitle-overlay" id="subtitleOverlay">
-                        <div class="subtitle-text-box" id="subtitleTextBox" contenteditable="false">
-                            Double click to edit subtitle text...
+                        <!-- DYNAMIC SUBTITLE SCALING OVERLAY -->
+                        <div class="subtitle-overlay" id="subtitleOverlay">
+                            <div class="subtitle-text-box" id="subtitleTextBox" contenteditable="false">
+                                Double click to edit subtitle text...
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -85,7 +100,7 @@
                     </div>
                 </div>
 
-                <!-- DEDICATED INTERACTIVE TIMELINE TRACK -->
+                <!-- DEDICATED TIMELINE TRACK -->
                 <div class="timeline-container" id="timelineContainer">
                     <div class="timeline-toolbar">
                         <span class="toolbar-label">Timeline Tracks</span>
@@ -109,57 +124,72 @@
                 </div>
             </section>
 
-            <!-- RIGHT COLUMN: ESSENTIAL GRAPHICS PROPERTIES & CONSOLE -->
-            <section class="panel properties-panel">
+            <!-- RIGHT COLUMN: ADOBE PREMIERE PRO ESSENTIAL GRAPHICS PANEL -->
+            <section class="panel properties-panel glass-panel">
                 <div class="panel-header">
                     <h2><span class="panel-icon">🎨</span> Essential Graphics</h2>
                 </div>
 
                 <div class="properties-scroll-container">
                     
-                    <!-- TEXT STYLING BLOCK -->
+                    <!-- 1. TEXT SECTION -->
                     <fieldset class="prop-group">
-                        <legend>Text Format</legend>
+                        <legend>Text</legend>
 
                         <div class="form-row">
-                            <label>Font Family:</label>
+                            <label>Font Family & Style:</label>
                             <div class="font-select-wrapper">
                                 <select id="fontFamilySelect" class="input-select">
                                     <option value="Montserrat">Montserrat</option>
                                     <option value="Poppins">Poppins</option>
+                                    <option value="Inter">Inter</option>
+                                    <option value="Oswald">Oswald</option>
+                                    <option value="Roboto">Roboto</option>
                                     <option value="Arial">Arial</option>
+                                </select>
+                                <select id="fontStyleSelect" class="input-select-style">
+                                    <option value="Regular">Regular</option>
+                                    <option value="Bold" selected>Bold</option>
+                                    <option value="Italic">Italic</option>
+                                    <option value="Black">Black</option>
                                 </select>
                                 <button id="btnUploadFont" class="btn-sm btn-icon" title="Upload Custom Font">⬆️</button>
                                 <input type="file" id="fontFileInput" accept=".ttf,.otf" style="display:none;">
                             </div>
                         </div>
 
-                        <div class="form-row split-2">
-                            <div>
-                                <label>Size (px):</label>
+                        <!-- Font Size with Slider + Numeric Input -->
+                        <div class="form-row slider-row">
+                            <label>Font Size (px):</label>
+                            <div class="slider-with-number">
+                                <input type="range" id="fontSizeSlider" min="10" max="200" value="48">
                                 <input type="number" id="fontSizeInput" value="48" min="10" max="200">
                             </div>
-                            <div>
-                                <label>Tracking:</label>
-                                <input type="number" id="trackingInput" value="0" min="-50" max="100">
+                        </div>
+
+                        <!-- Paragraph Alignment -->
+                        <div class="form-row">
+                            <label>Paragraph Alignment:</label>
+                            <div class="para-align-grid">
+                                <button class="btn-para-align" data-align="left" title="Align Left">⯇ Left</button>
+                                <button class="btn-para-align active" data-align="center" title="Align Center">≡ Center</button>
+                                <button class="btn-para-align" data-align="right" title="Align Right">⯈ Right</button>
+                                <button class="btn-para-align" data-align="justify" title="Justify">☰ Justify</button>
                             </div>
                         </div>
 
                         <div class="form-row split-2">
                             <div>
-                                <label>Leading (Line Ht):</label>
-                                <input type="number" id="leadingInput" value="1.2" step="0.1" min="0.5" max="3">
+                                <label>Tracking (VA):</label>
+                                <input type="number" id="trackingInput" value="0" min="-50" max="100">
                             </div>
                             <div>
-                                <label>Primary Color:</label>
-                                <div class="color-picker-box">
-                                    <input type="color" id="primaryColorInput" value="#FFFFFF">
-                                    <input type="range" id="primaryOpacityInput" min="0" max="1" step="0.05" value="1" title="Opacity">
-                                </div>
+                                <label>Leading (A/A):</label>
+                                <input type="number" id="leadingInput" value="1.2" step="0.1" min="0.5" max="3">
                             </div>
                         </div>
 
-                        <!-- 7 FAUX FORMATTING BUTTONS -->
+                        <!-- 8 FAUX FORMATTING BUTTONS -->
                         <div class="faux-buttons-grid">
                             <button class="btn-faux" id="btnFauxBold" title="Bold"><b>B</b></button>
                             <button class="btn-faux" id="btnFauxItalic" title="Italic"><i>I</i></button>
@@ -167,15 +197,16 @@
                             <button class="btn-faux" id="btnFauxSmallCaps" title="Small Caps">Tt</button>
                             <button class="btn-faux" id="btnFauxUnderline" title="Underline"><u>U</u></button>
                             <button class="btn-faux" id="btnFauxStrikethrough" title="Strikethrough"><s>S</s></button>
-                            <button class="btn-faux" id="btnFauxSubscript" title="Subscript / Superscript">X₂</button>
+                            <button class="btn-faux" id="btnFauxSuperscript" title="Superscript">X²</button>
+                            <button class="btn-faux" id="btnFauxSubscript" title="Subscript">X₂</button>
                         </div>
                     </fieldset>
 
-                    <!-- ALIGNMENT MATRIX (3x3 GRID) -->
+                    <!-- 2. ALIGN AND TRANSFORM SECTION -->
                     <fieldset class="prop-group">
-                        <legend>Alignment & Position</legend>
+                        <legend>Align and Transform</legend>
                         <div class="align-matrix-container">
-                            <label>Canvas Alignment:</label>
+                            <label>3x3 Zone Matrix Placement:</label>
                             <div class="align-grid-3x3">
                                 <button class="btn-align" data-align="top-left" title="Top Left">↖</button>
                                 <button class="btn-align" data-align="top-center" title="Top Center">↑</button>
@@ -188,68 +219,110 @@
                                 <button class="btn-align" data-align="bottom-right" title="Bottom Right">↘</button>
                             </div>
                         </div>
+
+                        <div class="form-row split-2" style="margin-top: 10px;">
+                            <div>
+                                <label>Pos X (px):</label>
+                                <input type="number" id="posXInput" placeholder="Auto">
+                            </div>
+                            <div>
+                                <label>Pos Y (px):</label>
+                                <input type="number" id="posYInput" placeholder="Auto">
+                            </div>
+                        </div>
                     </fieldset>
 
-                    <!-- STROKE & BORDER -->
+                    <!-- 3. APPEARANCE SECTION -->
                     <fieldset class="prop-group">
-                        <legend>Stroke & Edge</legend>
-                        <div class="form-row split-2">
-                            <div>
-                                <label>Stroke Width:</label>
-                                <input type="number" id="strokeWidthInput" value="2" min="0" max="20">
+                        <legend>Appearance</legend>
+                        
+                        <!-- FILL CONTROL -->
+                        <div class="appearance-row">
+                            <div class="check-label">
+                                <input type="checkbox" id="fillToggle" checked>
+                                <label for="fillToggle">Fill</label>
                             </div>
-                            <div>
-                                <label>Stroke Color:</label>
-                                <input type="color" id="strokeColorInput" value="#000000">
+                            <div class="color-picker-box">
+                                <input type="color" id="primaryColorInput" value="#FFFFFF">
+                                <input type="range" id="primaryOpacityInput" min="0" max="1" step="0.05" value="1" title="Opacity">
+                            </div>
+                        </div>
+
+                        <!-- STROKE CONTROL -->
+                        <div class="appearance-row column-layout">
+                            <div class="check-label-row">
+                                <div class="check-label">
+                                    <input type="checkbox" id="strokeToggle" checked>
+                                    <label for="strokeToggle">Stroke</label>
+                                </div>
+                                <div class="color-picker-box">
+                                    <input type="color" id="strokeColorInput" value="#000000">
+                                </div>
+                            </div>
+                            <div class="form-row split-2">
+                                <div>
+                                    <label>Width (px):</label>
+                                    <input type="number" id="strokeWidthInput" value="2" min="0" max="30">
+                                </div>
+                                <div>
+                                    <label>Type:</label>
+                                    <select id="strokeTypeSelect" class="input-select-sm">
+                                        <option value="Outer" selected>Outer</option>
+                                        <option value="Inner">Inner</option>
+                                        <option value="Center">Center</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BACKGROUND CONTROL -->
+                        <div class="appearance-row column-layout">
+                            <div class="check-label-row">
+                                <div class="check-label">
+                                    <input type="checkbox" id="bgToggle">
+                                    <label for="bgToggle">Background</label>
+                                </div>
+                                <div class="color-picker-box">
+                                    <input type="color" id="bgColorInput" value="#000000">
+                                </div>
+                            </div>
+                            <div class="form-row split-2">
+                                <div>
+                                    <label>Opacity (%):</label>
+                                    <input type="range" id="bgOpacityInput" min="0" max="1" step="0.05" value="0">
+                                </div>
+                                <div>
+                                    <label>Padding (px):</label>
+                                    <input type="number" id="bgPaddingInput" value="10" min="0" max="100">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SHADOW CONTROL -->
+                        <div class="appearance-row column-layout">
+                            <div class="check-label-row">
+                                <div class="check-label">
+                                    <input type="checkbox" id="shadowToggle">
+                                    <label for="shadowToggle">Shadow</label>
+                                </div>
+                                <div class="color-picker-box">
+                                    <input type="color" id="shadowColorInput" value="#000000">
+                                </div>
+                            </div>
+                            <div class="form-row split-2">
+                                <div>
+                                    <label>Distance:</label>
+                                    <input type="number" id="shadowDistanceInput" value="4" min="0" max="50">
+                                </div>
+                                <div>
+                                    <label>Blur:</label>
+                                    <input type="number" id="shadowBlurInput" value="4" min="0" max="50">
+                                </div>
                             </div>
                         </div>
                     </fieldset>
 
-                    <!-- BACKGROUND BOX -->
-                    <fieldset class="prop-group">
-                        <legend>Background Box</legend>
-                        <div class="form-row split-3">
-                            <div>
-                                <label>Padding:</label>
-                                <input type="number" id="bgPaddingInput" value="10" min="0" max="100">
-                            </div>
-                            <div>
-                                <label>Bg Color:</label>
-                                <input type="color" id="bgColorInput" value="#000000">
-                            </div>
-                            <div>
-                                <label>Opacity:</label>
-                                <input type="range" id="bgOpacityInput" min="0" max="1" step="0.05" value="0">
-                            </div>
-                        </div>
-                    </fieldset>
-
-                    <!-- DROP SHADOW -->
-                    <fieldset class="prop-group">
-                        <legend>Drop Shadow</legend>
-                        <div class="form-row split-2">
-                            <div>
-                                <label>Shadow Color:</label>
-                                <input type="color" id="shadowColorInput" value="#000000">
-                            </div>
-                            <div>
-                                <label>Blur Radius:</label>
-                                <input type="number" id="shadowBlurInput" value="4" min="0" max="50">
-                            </div>
-                        </div>
-                        <div class="form-row split-2">
-                            <div>
-                                <label>Offset X:</label>
-                                <input type="number" id="shadowOffsetXInput" value="2" min="-50" max="50">
-                            </div>
-                            <div>
-                                <label>Offset Y:</label>
-                                <input type="number" id="shadowOffsetYInput" value="2" min="-50" max="50">
-                            </div>
-                        </div>
-                    </fieldset>
-
-                    <!-- DIAGNOSTIC EXECUTION CONSOLE -->
+                    <!-- 4. DIAGNOSTIC EXECUTION CONSOLE -->
                     <fieldset class="prop-group console-group">
                         <legend>Execution Console</legend>
                         <div class="console-header">
@@ -260,7 +333,7 @@
                             </div>
                         </div>
                         <div class="console-box" id="execConsoleBox">
-                            <div class="console-line info">[System initialized] Premiere Properties Subtitle Studio Ready.</div>
+                            <div class="console-line info">[System initialized] Premiere Properties Subtitle Studio v1.2.0 Ready.</div>
                         </div>
                     </fieldset>
 
@@ -271,7 +344,7 @@
 
         <!-- RENDER PROGRESS MODAL DIALOG -->
         <div class="modal-overlay" id="renderModal" style="display: none;">
-            <div class="modal-card">
+            <div class="modal-card glass-panel">
                 <h3>🚀 Exporting Video & Subtitles...</h3>
                 <div class="progress-bar-track">
                     <div class="progress-bar-fill" id="renderProgressFill" style="width: 0%;"></div>

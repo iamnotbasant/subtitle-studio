@@ -24,27 +24,37 @@ class CaptionItem(BaseModel):
 
 class RenderStyleProps(BaseModel):
     fontFamily: str = "Montserrat"
+    fontStyle: str = "Bold"  # Regular, Bold, Italic, Black
     fontSize: int = 48
-    tracking: float = 0.0  # letter spacing
-    leading: float = 1.2   # line height
+    tracking: float = 0.0    # letter spacing
+    leading: float = 1.2     # line height
     bold: bool = False
     italic: bool = False
     allCaps: bool = False
     smallCaps: bool = False
     underline: bool = False
     strikethrough: bool = False
-    alignment: str = "bottom-center"  # e.g., top-left, bottom-center, middle-center
+    superscript: bool = False
+    subscript: bool = False
+    alignment: str = "bottom-center"
+    textAlign: str = "center"  # left, center, right, justify
     posX: Optional[int] = None
     posY: Optional[int] = None
+    fillEnabled: bool = True
     primaryColor: str = "#FFFFFF"
     primaryOpacity: float = 1.0
+    strokeEnabled: bool = True
     strokeColor: str = "#000000"
     strokeWidth: int = 2
+    strokeType: str = "Outer"  # Outer, Inner, Center
+    bgEnabled: bool = False
     bgColor: str = "#000000"
     bgOpacity: float = 0.0
     bgPadding: int = 10
+    shadowEnabled: bool = False
     shadowColor: str = "#000000"
-    shadowBlur: int = 0
+    shadowDistance: int = 4
+    shadowBlur: int = 4
     shadowOffsetX: int = 2
     shadowOffsetY: int = 2
 
@@ -83,22 +93,36 @@ def get_ass_alignment(align_str: str) -> int:
 
 def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyleProps, ass_output_path: Path):
     """
-    Generates a full .ass subtitle file with exact positioning, font, colors, stroke, background box, and drop shadow.
+    Generates a full .ass subtitle file aligned 1:1 with Premiere Pro Essential Graphics controls.
     """
     info = get_video_info(video_path)
     res_x = info["width"]
     res_y = info["height"]
 
-    primary_ass = hex_to_ass_color(style.primaryColor, style.primaryOpacity)
-    stroke_ass = hex_to_ass_color(style.strokeColor, 1.0 if style.strokeWidth > 0 else 0.0)
-    bg_ass = hex_to_ass_color(style.bgColor, style.bgOpacity)
-    shadow_ass = hex_to_ass_color(style.shadowColor, 0.6 if (style.shadowOffsetX or style.shadowOffsetY) else 0.0)
+    # Fill / Primary Color
+    fill_op = style.primaryOpacity if style.fillEnabled else 0.0
+    primary_ass = hex_to_ass_color(style.primaryColor, fill_op)
+
+    # Stroke / Outline
+    stroke_op = 1.0 if (style.strokeEnabled and style.strokeWidth > 0) else 0.0
+    stroke_ass = hex_to_ass_color(style.strokeColor, stroke_op)
+    stroke_val = style.strokeWidth if style.strokeEnabled else 0
+
+    # Background Box
+    bg_op = style.bgOpacity if style.bgEnabled else 0.0
+    bg_ass = hex_to_ass_color(style.bgColor, bg_op)
+
+    # Shadow
+    shadow_op = 0.7 if style.shadowEnabled else 0.0
+    shadow_ass = hex_to_ass_color(style.shadowColor, shadow_op)
+    shadow_val = max(abs(style.shadowOffsetX), abs(style.shadowOffsetY), style.shadowDistance) if style.shadowEnabled else 0
 
     # BorderStyle: 1 = Outline + Shadow, 3 = Opaque Box
-    border_style = 3 if style.bgOpacity > 0 else 1
-    outline_val = style.bgPadding if border_style == 3 else style.strokeWidth
-    shadow_val = max(abs(style.shadowOffsetX), abs(style.shadowOffsetY))
+    border_style = 3 if (style.bgEnabled and style.bgOpacity > 0) else 1
+    outline_val = style.bgPadding if border_style == 3 else stroke_val
 
+    is_bold = 1 if (style.bold or style.fontStyle.lower() in ("bold", "black")) else 0
+    is_italic = 1 if (style.italic or style.fontStyle.lower() == "italic") else 0
     align_num = get_ass_alignment(style.alignment)
 
     # ASS Header
@@ -112,7 +136,7 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: Default,{style.fontFamily},{style.fontSize},{primary_ass},&H00000000,{stroke_ass},{bg_ass},{1 if style.bold else 0},{1 if style.italic else 0},{1 if style.underline else 0},{1 if style.strikethrough else 0},100,100,{style.tracking},0,{border_style},{outline_val},{shadow_val},{align_num},20,20,20,1",
+        f"Style: Default,{style.fontFamily},{style.fontSize},{primary_ass},&H00000000,{stroke_ass},{bg_ass},{is_bold},{is_italic},{1 if style.underline else 0},{1 if style.strikethrough else 0},100,100,{style.tracking},0,{border_style},{outline_val},{shadow_val},{align_num},20,20,20,1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
@@ -137,6 +161,9 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
         if style.posX is not None and style.posY is not None:
             tags.append(f"\\pos({style.posX},{style.posY})")
 
+        if style.tracking != 0:
+            tags.append(f"\\fsp{style.tracking}")
+
         tag_str = "{" + "".join(tags) + "}" if tags else ""
         ass_content.append(f"Dialogue: 0,{start_t},{end_t},Default,,0,0,0,,{tag_str}{text}")
 
@@ -154,7 +181,6 @@ def async_render_job(video_path: str, caption_dicts: List[dict], style: RenderSt
     out_srt_path = out_mp4_path.with_suffix(".srt")
     out_xml_path = out_mp4_path.with_suffix(".xml")
 
-    # Generate SRT and Premiere XML export artifacts
     generate_srt_file(caption_dicts, out_srt_path)
     generate_premiere_xml(video_path, caption_dicts, out_xml_path)
 
@@ -164,19 +190,15 @@ def async_render_job(video_path: str, caption_dicts: List[dict], style: RenderSt
 @router.post("/render")
 def trigger_render(req: RenderRequest):
     """
-    Accepts JSON payload with video path, captions, and styles, generates ASS script, and triggers render engine.
-    Resets render progress state to 0% at the start of every render.
+    Accepts JSON payload with video path, captions, and Essential Graphics styles, triggers background render.
     """
     path_obj = Path(req.video_path).resolve()
     if not path_obj.exists():
         raise HTTPException(status_code=404, detail=f"Source video path does not exist: '{req.video_path}'")
 
-    # Reset progress to zero to clear any stale data
     reset_render_progress()
-
     caption_dicts = [c.dict() for c in req.captions]
 
-    # Start rendering thread in background
     thread = threading.Thread(target=async_render_job, args=(str(path_obj), caption_dicts, req.style), daemon=True)
     thread.start()
 

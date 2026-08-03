@@ -1,5 +1,5 @@
 /**
- * Main Application Orchestrator & API Integration Engine
+ * Main Application Orchestrator, Aspect Ratio Engine & API Controller
  */
 
 let currentLoadedVideoPath = "";
@@ -20,6 +20,36 @@ function updateLiveSubtitleOverlay() {
         setActiveCaption(activeCap.id);
     } else {
         overlay.style.display = 'none';
+    }
+}
+
+function updateViewportAspectRatio(mode) {
+    const container = document.getElementById('videoContainer');
+    const video = document.getElementById('mainVideoPlayer');
+    if (!container) return;
+
+    container.classList.remove('aspect-9-16', 'aspect-16-9', 'aspect-1-1');
+
+    if (mode === '9:16') {
+        container.classList.add('aspect-9-16');
+    } else if (mode === '16:9') {
+        container.classList.add('aspect-16-9');
+    } else if (mode === '1:1') {
+        container.classList.add('aspect-1-1');
+    } else if (mode === 'auto') {
+        if (video && video.videoWidth && video.videoHeight) {
+            if (video.videoHeight > video.videoWidth) {
+                container.classList.add('aspect-9-16');
+            } else if (video.videoWidth > video.videoHeight) {
+                container.classList.add('aspect-16-9');
+            } else {
+                container.classList.add('aspect-1-1');
+            }
+        }
+    }
+
+    if (typeof applyStyling === 'function') {
+        setTimeout(applyStyling, 50);
     }
 }
 
@@ -54,6 +84,10 @@ async function loadColabStream(videoPath) {
         player.load();
         
         player.onloadedmetadata = () => {
+            const aspectSelect = document.getElementById('aspectRatioSelect');
+            const mode = aspectSelect ? aspectSelect.value : 'auto';
+            updateViewportAspectRatio(mode);
+
             if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
         };
 
@@ -201,13 +235,19 @@ function initAppListeners() {
     const btnAddCaption = document.getElementById('btnAddCaption');
     const btnUploadFont = document.getElementById('btnUploadFont');
     const fontFileInput = document.getElementById('fontFileInput');
+    const aspectSelect = document.getElementById('aspectRatioSelect');
     const video = document.getElementById('mainVideoPlayer');
     const btnPlayPause = document.getElementById('btnPlayPause');
     const btnStepBack = document.getElementById('btnStepBack');
     const btnStepForward = document.getElementById('btnStepForward');
     const volumeSlider = document.getElementById('volumeSlider');
 
-    // Video Loading
+    if (aspectSelect) {
+        aspectSelect.addEventListener('change', (e) => {
+            updateViewportAspectRatio(e.target.value);
+        });
+    }
+
     if (btnLoadVideo && videoInput) {
         btnLoadVideo.addEventListener('click', () => loadColabStream(videoInput.value));
     }
@@ -220,7 +260,6 @@ function initAppListeners() {
         btnExportRender.addEventListener('click', triggerExport);
     }
 
-    // SRT File Import
     if (btnImportSrt && srtFileInput) {
         btnImportSrt.addEventListener('click', () => srtFileInput.click());
         srtFileInput.addEventListener('change', (e) => {
@@ -242,7 +281,6 @@ function initAppListeners() {
         btnAddCaption.addEventListener('click', addCaptionLine);
     }
 
-    // Font File Upload
     if (btnUploadFont && fontFileInput) {
         btnUploadFont.addEventListener('click', () => fontFileInput.click());
         fontFileInput.addEventListener('change', async (e) => {
@@ -266,7 +304,7 @@ function initAppListeners() {
                             fontSelect.appendChild(opt);
                             fontSelect.value = data.font_metadata.family;
                             styleState.fontFamily = data.font_metadata.family;
-                            applyStyling();
+                            if (typeof applyStyling === 'function') applyStyling();
                         }
                     }
                 } catch (err) {
@@ -276,7 +314,6 @@ function initAppListeners() {
         });
     }
 
-    // Video Player Events
     if (video) {
         video.addEventListener('timeupdate', () => {
             updateLiveSubtitleOverlay();
