@@ -22,8 +22,9 @@ class DownloadDriveRequest(BaseModel):
 def check_video(req: CheckVideoRequest):
     """
     Validates file existence, file size, duration, and lists available video files in directory if missing.
+    Handles spaces in file paths cleanly.
     """
-    path_obj = Path(req.video_path)
+    path_obj = Path(req.video_path).resolve()
     if not path_obj.exists():
         parent_dir = path_obj.parent if path_obj.parent.exists() else Path.cwd()
         video_extensions = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
@@ -43,7 +44,7 @@ def check_video(req: CheckVideoRequest):
         info = get_video_info(str(path_obj))
         return {
             "valid": True,
-            "path": str(path_obj.resolve()),
+            "path": str(path_obj),
             "filename": path_obj.name,
             "size_mb": size_mb,
             "duration": round(info["duration"], 2),
@@ -58,10 +59,11 @@ def check_video(req: CheckVideoRequest):
 def stream_video(video_path: str = Query(...)):
     """
     Generates/serves a fast-start H.264 YUV420p web proxy for smooth browser HTML5 playback.
+    Safely handles spaces in file paths.
     """
-    source_path = Path(video_path)
+    source_path = Path(video_path).resolve()
     if not source_path.exists():
-        raise HTTPException(status_code=404, detail="Source video file not found")
+        raise HTTPException(status_code=404, detail=f"Source video file not found: '{video_path}'")
 
     proxy_filename = f"web_proxy_v5_{source_path.stem}.mp4"
     proxy_path = TEMP_DIR / proxy_filename
@@ -75,7 +77,7 @@ def stream_video(video_path: str = Query(...)):
             "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
             "-movflags", "+faststart",
             "-c:a", "aac", "-b:a", "128k",
-            str(proxy_path)
+            str(proxy_path.resolve())
         ]
         try:
             subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
@@ -83,7 +85,7 @@ def stream_video(video_path: str = Query(...)):
             # Fall back to serving direct file if proxy generation fails
             return FileResponse(str(source_path), media_type="video/mp4")
 
-    return FileResponse(str(proxy_path), media_type="video/mp4")
+    return FileResponse(str(proxy_path.resolve()), media_type="video/mp4")
 
 @router.post("/download_drive_link")
 def download_drive_link(req: DownloadDriveRequest):
@@ -106,11 +108,11 @@ def download_drive_link(req: DownloadDriveRequest):
         else:
             gdown_target = url
 
-        res = gdown.download(gdown_target, str(output_path), quiet=False, fuzzy=True)
+        res = gdown.download(gdown_target, str(output_path.resolve()), quiet=False, fuzzy=True)
         if not res or not output_path.exists():
             raise Exception("Failed to download video from Google Drive link.")
 
-        info = get_video_info(str(output_path))
+        info = get_video_info(str(output_path.resolve()))
         return {
             "success": True,
             "saved_path": str(output_path.resolve()),

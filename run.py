@@ -5,6 +5,7 @@ import socket
 import subprocess
 import threading
 import urllib.request
+from urllib.error import HTTPError, URLError
 from pathlib import Path
 import uvicorn
 
@@ -39,65 +40,124 @@ def kill_port_8000():
             pass
     time.sleep(1.0)
 
+def download_font_with_fallback(filename: str, urls: list, target_path: Path):
+    """
+    Downloads font file using user-agent headers and multi-URL fallback mechanism without throwing 404 exceptions.
+    """
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    
+    for url in urls:
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                if response.status == 200:
+                    content = response.read()
+                    if len(content) > 1000:  # Ensure valid non-empty font binary
+                        with open(target_path, "wb") as f:
+                            f.write(content)
+                        print(f" Successfully downloaded font: {filename}")
+                        return True
+        except (HTTPError, URLError, Exception):
+            continue
+            
+    print(f" Warning: Could not download {filename} from remote sources. Falling back to system fonts.")
+    return False
+
 def ensure_essential_fonts():
     """
-    Ensures essential default fonts (e.g. Montserrat, Poppins) exist in custom fonts directory.
+    Ensures essential fonts (Montserrat, Poppins, Inter, Oswald, Roboto) exist in custom fonts directory or system fonts.
     """
-    print("Verifying essential fonts availability...")
-    essential_fonts = {
-        "Montserrat-Bold.ttf": "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf",
-        "Poppins-Bold.ttf": "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf"
+    print("Verifying essential fonts (Montserrat, Poppins, Inter, Oswald, Roboto)...")
+    
+    essential_fonts_urls = {
+        "Montserrat-Bold.ttf": [
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat-Bold.ttf",
+            "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf"
+        ],
+        "Poppins-Bold.ttf": [
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Bold.ttf",
+            "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf"
+        ],
+        "Inter-Bold.ttf": [
+            "https://raw.githubusercontent.com/rsms/inter/master/docs/font-files/Inter-Bold.otf",
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/Inter-Bold.ttf"
+        ],
+        "Oswald-Bold.ttf": [
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/oswald/static/Oswald-Bold.ttf",
+            "https://github.com/google/fonts/raw/main/ofl/oswald/static/Oswald-Bold.ttf"
+        ],
+        "Roboto-Bold.ttf": [
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/roboto/static/Roboto-Bold.ttf",
+            "https://github.com/google/fonts/raw/main/ofl/roboto/static/Roboto-Bold.ttf"
+        ]
     }
     
-    for filename, url in essential_fonts.items():
+    for filename, urls in essential_fonts_urls.items():
         font_path = CUSTOM_FONTS_DIR / filename
         if not font_path.exists():
-            try:
-                print(f"Downloading essential font: {filename}...")
-                urllib.request.urlretrieve(url, font_path)
-            except Exception as e:
-                print(f"Could not download {filename}: {e}")
+            download_font_with_fallback(filename, urls, font_path)
 
-    # Register all system & custom fonts
+    # Register all system & custom fonts into database
     fonts = scan_all_available_fonts()
-    print(f"Registered {len(fonts)} unique font families into Subtitle Studio font database.")
+    print(f"Registered {len(fonts)} font families in Subtitle Studio font database.")
 
-def launch_colab_proxy():
+def get_colab_proxy_url():
     """
-    Exposes Uvicorn server port via Google Colab proxy kernel helper.
+    Detects Google Colab environment and evaluates kernel proxy port to construct sanitized public URL.
     """
-    if IS_COLAB:
+    if IS_COLAB or "google.colab" in sys.modules:
         try:
-            from google.colab import kernel
-            print("\n" + "="*70)
-            print("🚀 Running inside Google Colab environment!")
-            proxy_url = kernel.proxyPort(8000)
-            print(f"🔗 Premiere Properties Subtitle Studio URL: {proxy_url}")
-            print("="*70 + "\n")
+            from google.colab import output, kernel
+            try:
+                raw_url = output.eval_js('google.colab.kernel.proxyPort(8000)')
+            except Exception:
+                raw_url = kernel.proxyPort(8000)
+
+            url_str = str(raw_url).strip()
+            if not url_str.startswith("http"):
+                url_str = f"https://{url_str}"
+
+            # Sanitize trailing slashes to prevent '.devfrontend/index.html' malformed URLs
+            clean_base_url = url_str.rstrip('/')
+            return f"{clean_base_url}/frontend/index.html"
         except Exception as e:
-            print(f"Could not expose Colab proxy port: {e}")
+            print(f"Note: Colab proxy URL generation error: {e}")
+            return None
+    return None
+
+def print_startup_banner():
+    """
+    Prints high-visibility clickable startup link banner BEFORE server initialization.
+    """
+    colab_link = get_colab_proxy_url()
+    
+    print("\n" + "="*75)
+    print(f"🎬 Premiere Properties Subtitle Studio (v{APP_VERSION})")
+    if colab_link:
+        print("🚀 Running inside Google Colab Environment!")
+        print(f"✨ PUBLIC COLAB STUDIO LINK: {colab_link}")
+    else:
+        print("🖥️  Running on Local Machine!")
+        print("✨ LOCAL STUDIO LINK: http://localhost:8000/frontend/index.html")
+    print("="*75 + "\n")
 
 def run_uvicorn_server():
     """
-    Runs the Uvicorn FastAPI server on host 0.0.0.0 and port 8000.
+    Launches Uvicorn FastAPI server on host 0.0.0.0 and port 8000.
     """
-    # Import app string dynamically for reload compatibility
     sys.path.insert(0, str(BASE_DIR))
     uvicorn.run("backend.app:app", host="0.0.0.0", port=8000, reload=False, log_level="info")
 
 if __name__ == "__main__":
-    print(f"Starting Premiere Properties Subtitle Studio (v{APP_VERSION})...")
     kill_port_8000()
     ensure_essential_fonts()
-    launch_colab_proxy()
+    
+    # Print clickable URL banner BEFORE server launch for non-blocking log visibility
+    print_startup_banner()
 
-    # Launch server
+    # Launch daemon Uvicorn server thread
     server_thread = threading.Thread(target=run_uvicorn_server, daemon=True)
     server_thread.start()
-
-    print("\n" + "*"*60)
-    print("✨ Subtitle Studio Server is now active on http://localhost:8000/frontend/index.html")
-    print("*"*60 + "\n")
 
     try:
         while server_thread.is_alive():

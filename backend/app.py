@@ -29,8 +29,11 @@ app.include_router(stream_router, prefix="/api", tags=["Stream"])
 app.include_router(font_router, prefix="/api", tags=["Fonts"])
 app.include_router(render_router, prefix="/api", tags=["Render"])
 
-# Mount static frontend directory
+# Mount static frontend directory with robust fallback path resolution
 frontend_path = BASE_DIR / "frontend"
+if not frontend_path.exists():
+    frontend_path = Path("frontend").resolve()
+
 if frontend_path.exists():
     app.mount("/frontend", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
 

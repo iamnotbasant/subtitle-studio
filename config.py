@@ -3,7 +3,7 @@ import sys
 import threading
 from pathlib import Path
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 # Environment detection
 IS_COLAB = "google.colab" in sys.modules
@@ -15,7 +15,7 @@ CUSTOM_FONTS_DIR = BASE_DIR / "fonts" / "custom"
 SYSTEM_FONTS_DIR = Path("/usr/share/fonts") if not sys.platform.startswith("win") else Path(os.environ.get("WINDIR", "C:\\Windows")) / "Fonts"
 OUTPUT_DIR = BASE_DIR / "exports"
 
-# Create directories if they do not exist
+# Ensure essential workspace directories exist
 TEMP_DIR.mkdir(parents=True, exist_ok=True)
 CUSTOM_FONTS_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

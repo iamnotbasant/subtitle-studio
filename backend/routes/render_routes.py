@@ -2,10 +2,10 @@ import os
 import threading
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTask
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
-from config import TEMP_DIR, OUTPUT_DIR, get_render_progress
+from config import TEMP_DIR, OUTPUT_DIR, get_render_progress, reset_render_progress
 from backend.utils.ffmpeg_engine import (
     get_video_info,
     get_auto_versioned_path,
@@ -165,10 +165,14 @@ def async_render_job(video_path: str, caption_dicts: List[dict], style: RenderSt
 def trigger_render(req: RenderRequest):
     """
     Accepts JSON payload with video path, captions, and styles, generates ASS script, and triggers render engine.
+    Resets render progress state to 0% at the start of every render.
     """
-    path_obj = Path(req.video_path)
+    path_obj = Path(req.video_path).resolve()
     if not path_obj.exists():
-        raise HTTPException(status_code=404, detail="Source video path does not exist.")
+        raise HTTPException(status_code=404, detail=f"Source video path does not exist: '{req.video_path}'")
+
+    # Reset progress to zero to clear any stale data
+    reset_render_progress()
 
     caption_dicts = [c.dict() for c in req.captions]
 

@@ -7,35 +7,51 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from config import OUTPUT_DIR, TEMP_DIR, CUSTOM_FONTS_DIR, update_render_progress, reset_render_progress
 
-def get_video_duration_secs(video_path: str) -> float:
+def escape_ffmpeg_filter_path(path_input: str or Path) -> str:
     """
-    Uses ffprobe to obtain total video duration in seconds.
+    Escapes file path string for FFmpeg video filter parameter (-vf subtitles='...').
+    Converts backslashes to forward slashes, escapes colons (C:\ -> C\:) and special characters.
     """
+    p_str = str(Path(path_input).resolve()).replace("\\", "/")
+    # Escape colons (crucial for Windows drive letters like C:)
+    p_str = p_str.replace(":", "\\:")
+    # Escape single quotes
+    p_str = p_str.replace("'", "'\\''")
+    # Escape brackets
+    p_str = p_str.replace("[", "\\[").replace("]", "\\]")
+    return p_str
+
+def get_video_duration_secs(video_path: str or Path) -> float:
+    """
+    Uses ffprobe to obtain total video duration in seconds with robust path escaping.
+    """
+    clean_path = str(Path(video_path).resolve())
     cmd = [
         "ffprobe",
         "-v", "error",
         "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1",
-        str(video_path)
+        clean_path
     ]
     try:
         res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
         return float(res.stdout.strip())
     except Exception as e:
-        print(f"Error getting video duration: {e}")
+        print(f"Error getting video duration for '{clean_path}': {e}")
         return 0.0
 
-def get_video_info(video_path: str) -> dict:
+def get_video_info(video_path: str or Path) -> dict:
     """
     Retrieves video resolution, frame rate, and duration.
     """
+    clean_path = str(Path(video_path).resolve())
     cmd = [
         "ffprobe",
         "-v", "error",
         "-select_streams", "v:0",
         "-show_entries", "stream=width,height,r_frame_rate,duration",
         "-of", "csv=p=0",
-        str(video_path)
+        clean_path
     ]
     try:
         res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
@@ -48,12 +64,12 @@ def get_video_info(video_path: str) -> dict:
             fps = float(num) / float(den) if float(den) != 0 else 30.0
         else:
             fps = float(fps_str)
-        duration = float(parts[3]) if len(parts) > 3 and parts[3] else get_video_duration_secs(video_path)
+        duration = float(parts[3]) if len(parts) > 3 and parts[3] else get_video_duration_secs(clean_path)
         return {"width": width, "height": height, "fps": fps, "duration": duration}
     except Exception:
-        return {"width": 1920, "height": 1080, "fps": 30.0, "duration": get_video_duration_secs(video_path)}
+        return {"width": 1920, "height": 1080, "fps": 30.0, "duration": get_video_duration_secs(clean_path)}
 
-def get_auto_versioned_path(base_name: str, ext: str = ".mp4") -> Path:
+def get_auto_versioned_path(base_name: str or Path, ext: str = ".mp4") -> Path:
     """
     Auto-increments file output path (e.g. video_v1.mp4, video_v2.mp4) if target exists.
     """
@@ -83,17 +99,18 @@ def generate_srt_file(captions: list, output_path: Path):
             text = cap.get("text", "")
             f.write(f"{idx}\n{start_str} --> {end_str}\n{text}\n\n")
 
-def generate_premiere_xml(video_path: str, captions: list, output_xml_path: Path):
+def generate_premiere_xml(video_path: str or Path, captions: list, output_xml_path: Path):
     """
     Generates an Adobe Premiere Pro (.xml) sequence containing clip markers / subtitle tracks.
     """
-    info = get_video_info(video_path)
+    clean_path = Path(video_path).resolve()
+    info = get_video_info(clean_path)
     total_frames = int(info["duration"] * info["fps"])
     timebase = int(round(info["fps"]))
 
     xmeml = ET.Element("xmeml", version="4")
     sequence = ET.SubElement(xmeml, "sequence", id="Sequence1")
-    ET.SubElement(sequence, "name").text = Path(video_path).stem + " Subtitle Sequence"
+    ET.SubElement(sequence, "name").text = clean_path.stem + " Subtitle Sequence"
     ET.SubElement(sequence, "duration").text = str(total_frames)
 
     rate = ET.SubElement(sequence, "rate")
@@ -106,14 +123,14 @@ def generate_premiere_xml(video_path: str, captions: list, output_xml_path: Path
     # Track 1: Main Video
     v_track1 = ET.SubElement(video, "track")
     clip1 = ET.SubElement(v_track1, "clipitem", id="clipitem-1")
-    ET.SubElement(clip1, "name").text = Path(video_path).name
+    ET.SubElement(clip1, "name").text = clean_path.name
     ET.SubElement(clip1, "duration").text = str(total_frames)
     ET.SubElement(clip1, "start").text = "0"
     ET.SubElement(clip1, "end").text = str(total_frames)
     
     file_elem = ET.SubElement(clip1, "file", id="file-1")
-    ET.SubElement(file_elem, "name").text = Path(video_path).name
-    ET.SubElement(file_elem, "pathurl").text = Path(video_path).resolve().as_uri()
+    ET.SubElement(file_elem, "name").text = clean_path.name
+    ET.SubElement(file_elem, "pathurl").text = clean_path.as_uri()
 
     # Track 2: Subtitle markers / clips
     v_track2 = ET.SubElement(video, "track")
@@ -139,7 +156,7 @@ def generate_premiere_xml(video_path: str, captions: list, output_xml_path: Path
     ET.indent(tree, space="  ")
     tree.write(output_xml_path, encoding="utf-8", xml_declaration=True)
 
-def render_ass_video(video_path: str, ass_path: str, output_path: Path, duration: float) -> bool:
+def render_ass_video(video_path: str or Path, ass_path: str or Path, output_path: Path, duration: float) -> bool:
     """
     Executes the 6-stage fallback ASS subtitle FFmpeg render pipeline:
       Stage 1: GPU NVENC Fast + Sys Fonts + Copy Audio
@@ -151,9 +168,9 @@ def render_ass_video(video_path: str, ass_path: str, output_path: Path, duration
     """
     reset_render_progress()
 
-    # Escape ASS filename path for FFmpeg filter parameter
-    escaped_ass = str(ass_path).replace("\\", "/").replace(":", "\\:")
-    fonts_dir_escaped = str(CUSTOM_FONTS_DIR).replace("\\", "/").replace(":", "\\:")
+    clean_video_path = str(Path(video_path).resolve())
+    escaped_ass = escape_ffmpeg_filter_path(ass_path)
+    escaped_fonts_dir = escape_ffmpeg_filter_path(CUSTOM_FONTS_DIR)
 
     stages = [
         {
@@ -162,7 +179,7 @@ def render_ass_video(video_path: str, ass_path: str, output_path: Path, duration
         },
         {
             "name": "Stage 2: GPU NVENC + Custom Fonts Dir + Copy Audio",
-            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-vf", f"subtitles='{escaped_ass}':fontsdir='{fonts_dir_escaped}'", "-c:a", "copy"]
+            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_fonts_dir}'", "-c:a", "copy"]
         },
         {
             "name": "Stage 3: CPU libx264 Ultrafast + System Fonts + Copy Audio",
@@ -170,7 +187,7 @@ def render_ass_video(video_path: str, ass_path: str, output_path: Path, duration
         },
         {
             "name": "Stage 4: CPU libx264 Ultrafast + Custom Fonts Dir + Copy Audio",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{fonts_dir_escaped}'", "-c:a", "copy"]
+            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_fonts_dir}'", "-c:a", "copy"]
         },
         {
             "name": "Stage 5: CPU libx264 Ultrafast + System Fonts + AAC Re-encode",
@@ -178,7 +195,7 @@ def render_ass_video(video_path: str, ass_path: str, output_path: Path, duration
         },
         {
             "name": "Stage 6: CPU libx264 Ultrafast + Custom Fonts Dir + AAC Re-encode",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{fonts_dir_escaped}'", "-c:a", "aac", "-b:a", "192k"]
+            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_fonts_dir}'", "-c:a", "aac", "-b:a", "192k"]
         }
     ]
 
@@ -200,13 +217,13 @@ def render_ass_video(video_path: str, ass_path: str, output_path: Path, duration
         cmd = [
             "ffmpeg", "-y",
             "-progress", str(progress_file),
-            "-i", str(video_path)
-        ] + stage["args"] + [str(output_path)]
+            "-i", clean_video_path
+        ] + stage["args"] + [str(output_path.resolve())]
 
         try:
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             
-            # Progress loop
+            # Progress tracking loop
             while process.poll() is None:
                 time.sleep(0.3)
                 if progress_file.exists():
