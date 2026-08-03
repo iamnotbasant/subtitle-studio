@@ -1,5 +1,5 @@
 /**
- * Captions Data State Manager, SRT Parser & Zero-Lag DOM Card Renderer
+ * Captions Data State Manager, SRT/VTT/TXT Exporters & Auto AI Transcriber Engine
  */
 
 let captionsData = [
@@ -26,6 +26,14 @@ function formatSRTTime(seconds) {
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
 }
 
+function formatVTTTime(seconds) {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds - Math.floor(seconds)) * 1000);
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+}
+
 function parseSRT(srtText) {
     const blocks = srtText.trim().replace(/\r\n/g, '\n').split(/\n\n+/);
     const parsed = [];
@@ -47,6 +55,59 @@ function parseSRT(srtText) {
         }
     });
     return parsed;
+}
+
+function downloadCaptionsFile(format = 'srt') {
+    if (!captionsData || captionsData.length === 0) {
+        logExec("No captions available to export!", "warn");
+        return;
+    }
+
+    let content = "";
+    let mime = "text/plain";
+    let filename = `subtitles.${format}`;
+
+    if (format === 'srt') {
+        mime = "application/x-subrip";
+        content = captionsData.map((c, i) => `${i + 1}\n${formatSRTTime(c.start)} --> ${formatSRTTime(c.end)}\n${c.text}\n`).join('\n');
+    } else if (format === 'vtt') {
+        mime = "text/vtt";
+        content = "WEBVTT\n\n" + captionsData.map((c, i) => `${i + 1}\n${formatVTTTime(c.start)} --> ${formatVTTTime(c.end)}\n${c.text}\n`).join('\n');
+    } else if (format === 'txt') {
+        mime = "text/plain";
+        content = captionsData.map(c => c.text).join('\n');
+    }
+
+    const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    logExec(`Exported ${captionsData.length} lines to ${filename}`, "success");
+}
+
+async function autoGenerateAiCaptions() {
+    logExec("Triggering AI Auto-Transcribe for video audio...", "info");
+    try {
+        const res = await fetch('/api/generate_ai_captions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ video_path: currentLoadedVideoPath || "" })
+        });
+        const data = await res.json();
+        if (res.ok && data.captions) {
+            captionsData = data.captions;
+            renderCaptionsList();
+            if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
+            logExec(`AI Auto-Transcribed ${data.captions.length} timed subtitle lines successfully!`, "success");
+        } else {
+            logExec("AI transcription failed.", "error");
+        }
+    } catch (err) {
+        logExec(`AI transcription error: ${err}`, "error");
+    }
 }
 
 function renderCaptionsList() {

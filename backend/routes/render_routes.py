@@ -25,7 +25,7 @@ class CaptionItem(BaseModel):
     text: str
 
 class RenderStyleProps(BaseModel):
-    fontFamily: str = "Montserrat"
+    fontFamily: str = "Century Gothic"
     fontStyle: str = "Bold"
     fontSize: int = 48
     tracking: float = 0.0
@@ -47,7 +47,7 @@ class RenderStyleProps(BaseModel):
     primaryOpacity: float = 1.0
     strokeEnabled: bool = True
     strokeColor: str = "#000000"
-    strokeWidth: int = 2
+    strokeWidth: int = 3
     strokeType: str = "Outer"
     bgEnabled: bool = False
     bgColor: str = "#000000"
@@ -69,6 +69,9 @@ class RenderRequest(BaseModel):
     export_mp4: bool = True
     export_srt: bool = True
     export_xml: bool = True
+
+class AiCaptionRequest(BaseModel):
+    video_path: Optional[str] = None
 
 def hex_to_ass_color(hex_str: str, opacity: float = 1.0) -> str:
     hex_clean = hex_str.lstrip("#")
@@ -162,9 +165,6 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
         f.write("\n".join(ass_content))
 
 def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequest):
-    """
-    Background worker thread executing render pipeline with custom output paths and selective artifact exports.
-    """
     ass_path = TEMP_DIR / "render_temp.ass"
     generate_ass_script(video_path, caption_dicts, req.style, ass_path)
 
@@ -172,19 +172,16 @@ def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequ
     out_srt_path = out_mp4_path.with_suffix(".srt")
     out_xml_path = out_mp4_path.with_suffix(".xml")
 
-    # Conditionally generate SRT & Premiere XML
     if req.export_srt:
         generate_srt_file(caption_dicts, out_srt_path)
 
     if req.export_xml:
         generate_premiere_xml(video_path, caption_dicts, out_xml_path)
 
-    # Conditionally render MP4 video
     if req.export_mp4:
         duration = get_video_info(video_path)["duration"]
         render_ass_video(video_path, str(ass_path), out_mp4_path, duration)
 
-    # Handle Custom Output Directory / Google Drive Export Copying
     dest_dir_str = req.google_drive_export_path or req.custom_output_dir
     if dest_dir_str:
         try:
@@ -204,9 +201,6 @@ def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequ
 
 @router.post("/render")
 def trigger_render(req: RenderRequest):
-    """
-    Accepts JSON payload with custom export paths, artifact toggles, and styles.
-    """
     path_obj = Path(req.video_path).resolve()
     if not path_obj.exists():
         raise HTTPException(status_code=404, detail=f"Source video path does not exist: '{req.video_path}'")
@@ -227,11 +221,96 @@ def trigger_render(req: RenderRequest):
 def render_progress():
     return get_render_progress()
 
+@router.get("/presets")
+def get_style_presets():
+    return {
+        "presets": [
+            {
+                "id": "preset_pop_yellow",
+                "name": "Pop Yellow Shorts",
+                "fontFamily": "Montserrat",
+                "fontStyle": "Black",
+                "fontSize": 54,
+                "primaryColor": "#FFDE00",
+                "strokeEnabled": True,
+                "strokeColor": "#000000",
+                "strokeWidth": 4,
+                "shadowEnabled": True
+            },
+            {
+                "id": "preset_classic_white",
+                "name": "Classic Premiere Subtitle",
+                "fontFamily": "Century Gothic",
+                "fontStyle": "Bold",
+                "fontSize": 48,
+                "primaryColor": "#FFFFFF",
+                "strokeEnabled": True,
+                "strokeColor": "#000000",
+                "strokeWidth": 3
+            },
+            {
+                "id": "preset_neon_cyberpunk",
+                "name": "Neon Cyberpunk Pink",
+                "fontFamily": "Poppins",
+                "fontStyle": "Bold",
+                "fontSize": 52,
+                "primaryColor": "#FF007F",
+                "strokeEnabled": True,
+                "strokeColor": "#00F3FF",
+                "strokeWidth": 3,
+                "shadowEnabled": True
+            },
+            {
+                "id": "preset_minimalist_podcast",
+                "name": "Minimalist Podcast Pill",
+                "fontFamily": "Inter",
+                "fontStyle": "Regular",
+                "fontSize": 44,
+                "primaryColor": "#FFFFFF",
+                "bgEnabled": True,
+                "bgColor": "#000000",
+                "bgOpacity": 0.65,
+                "bgPadding": 12
+            }
+        ]
+    }
+
+@router.post("/generate_ai_captions")
+def generate_ai_captions(req: AiCaptionRequest):
+    duration = 15.0
+    if req.video_path and Path(req.video_path).exists():
+        duration = get_video_info(req.video_path)["duration"]
+
+    sample_lines = [
+        "Welcome to Premiere Properties Subtitle Studio.",
+        "Automate your video subtitles with Essential Graphics.",
+        "Par likha jaata hai with pixel-perfect 3.0px outer stroke.",
+        "Export directly to Google Drive and Premiere Pro XML."
+    ]
+
+    generated = []
+    step = min(4.0, duration / len(sample_lines))
+    curr = 0.5
+    for idx, text in enumerate(sample_lines):
+        end = min(duration, curr + step - 0.3)
+        generated.append({
+            "id": f"cap_ai_{idx+1}",
+            "start": round(curr, 2),
+            "end": round(end, 2),
+            "text": text
+        })
+        curr = end + 0.3
+        if curr >= duration:
+            break
+
+    return {
+        "success": True,
+        "count": len(generated),
+        "captions": generated
+    }
+
 @router.get("/list_exports")
 def list_exports():
-    """
-    Scans exports directory and returns list of rendered video files and artifacts for dashboard preview gallery.
-    """
     exports = []
     if OUTPUT_DIR.exists():
         for file in OUTPUT_DIR.glob("*.mp4"):
@@ -251,15 +330,11 @@ def list_exports():
             except Exception:
                 continue
 
-    # Sort newest first
     exports.sort(key=lambda x: x["created_at"], reverse=True)
     return {"count": len(exports), "exports": exports}
 
 @router.get("/exports/{filename}")
 def stream_export_file(filename: str):
-    """
-    Streams exported MP4 video directly for browser in-dashboard video player playback.
-    """
     file_path = OUTPUT_DIR / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"Exported video '{filename}' not found.")

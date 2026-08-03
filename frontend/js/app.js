@@ -1,5 +1,5 @@
 /**
- * Main Application Orchestrator, Export Options & Rendered Media Gallery Engine (Non-Recursive & Debounced)
+ * Main Application Orchestrator, Export Options & Rendered Media Gallery Engine (Premiere Pro 3.0.0 Sync)
  */
 
 let currentLoadedVideoPath = "";
@@ -12,6 +12,7 @@ function updateLiveSubtitleOverlay() {
     const video = document.getElementById('mainVideoPlayer');
     const overlay = document.getElementById('subtitleOverlay');
     const textBox = document.getElementById('subtitleTextBox');
+    const activeSubInput = document.getElementById('activeSubTextInput');
     if (!video || !textBox || !overlay) return;
 
     const currTime = video.currentTime || 0;
@@ -20,6 +21,7 @@ function updateLiveSubtitleOverlay() {
     if (activeCap) {
         if (cachedActiveCaptionText !== activeCap.text) {
             textBox.innerText = activeCap.text;
+            if (activeSubInput) activeSubInput.value = activeCap.text;
             cachedActiveCaptionText = activeCap.text;
         }
         if (overlay.style.display !== 'flex') {
@@ -350,6 +352,8 @@ function initOnScreenEditing() {
         const activeCap = getActiveCaptionForTime(video ? video.currentTime : 0);
         if (activeCap) {
             activeCap.text = textBox.innerText;
+            const activeSubInput = document.getElementById('activeSubTextInput');
+            if (activeSubInput) activeSubInput.value = textBox.innerText;
             renderCaptionsList();
             if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
             logExec("Updated subtitle text via double-click live canvas.", "success");
@@ -369,6 +373,10 @@ function initAppListeners() {
     const btnImportSrt = document.getElementById('btnImportSrt');
     const srtFileInput = document.getElementById('srtFileInput');
     const btnAddCaption = document.getElementById('btnAddCaption');
+    const btnAiCaptions = document.getElementById('btnAiCaptions');
+    const btnDownloadSrt = document.getElementById('btnDownloadSrt');
+    const btnDownloadVtt = document.getElementById('btnDownloadVtt');
+    const btnDownloadTxt = document.getElementById('btnDownloadTxt');
     const btnUploadFont = document.getElementById('btnUploadFont');
     const fontFileInput = document.getElementById('fontFileInput');
     const aspectSelect = document.getElementById('aspectRatioSelect');
@@ -377,6 +385,20 @@ function initAppListeners() {
     const btnStepBack = document.getElementById('btnStepBack');
     const btnStepForward = document.getElementById('btnStepForward');
     const volumeSlider = document.getElementById('volumeSlider');
+
+    if (btnAiCaptions) {
+        btnAiCaptions.addEventListener('click', autoGenerateAiCaptions);
+    }
+
+    if (btnDownloadSrt) {
+        btnDownloadSrt.addEventListener('click', () => downloadCaptionsFile('srt'));
+    }
+    if (btnDownloadVtt) {
+        btnDownloadVtt.addEventListener('click', () => downloadCaptionsFile('vtt'));
+    }
+    if (btnDownloadTxt) {
+        btnDownloadTxt.addEventListener('click', () => downloadCaptionsFile('txt'));
+    }
 
     if (aspectSelect) {
         aspectSelect.addEventListener('change', (e) => {

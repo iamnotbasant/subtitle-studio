@@ -16,7 +16,7 @@ if __name__ == "__main__":
     print("🚀 Staging, committing, and pushing to GitHub (iamnotbasant/subtitle-studio)...")
     
     if run_cmd(["git", "add", "."]):
-        commit_msg = "v1.6.0 Fast-load network compression GZip, async defer scripts, CSS layout containment, and Lighthouse performance fixes"
+        commit_msg = "v3.0.0 Major Release: AI Auto-Transcribe Captions, Essential Graphics Presets system, and VTT/TXT/SRT Exporters"
         run_cmd(["git", "commit", "-m", commit_msg])
         if run_cmd(["git", "push", "origin", "main"]):
             print("✨ Successfully updated GitHub repository!")

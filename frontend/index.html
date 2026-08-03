@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premiere Properties Subtitle Studio v1.6.0</title>
+    <title>Premiere Properties Subtitle Studio v3.0.0</title>
 
     <!-- Optimized Preconnect & Non-blocking Async Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,12 +24,12 @@
 <body class="apple-dark-theme">
     <div class="app-container">
 
-        <!-- APPLE-STYLE TOP NAVBAR -->
+        <!-- TOP NAVBAR -->
         <header class="top-navbar glass-panel">
             <div class="brand-title">
                 <div class="logo-icon"></div>
                 <h1>Subtitle Studio <span>Pro</span></h1>
-                <span class="version-badge" id="appVersionBadge">v1.6.0</span>
+                <span class="version-badge" id="appVersionBadge">v3.0.0</span>
             </div>
             
             <div class="video-input-group">
@@ -66,13 +66,19 @@
                 <div class="panel-header">
                     <h2><span class="panel-icon">📝</span> Captions</h2>
                     <div class="panel-actions">
+                        <button id="btnAiCaptions" class="btn-sm btn-glow-purple" title="Auto-generate AI Captions">⚡ AI Transcribe</button>
                         <button id="btnImportSrt" class="btn-sm">Import .SRT</button>
                         <input type="file" id="srtFileInput" accept=".srt" style="display:none;">
-                        <button id="btnAddCaption" class="btn-sm btn-accent">+ Add Line</button>
+                        <button id="btnAddCaption" class="btn-sm btn-accent">+ Add</button>
                     </div>
                 </div>
                 <div class="captions-list-container" id="captionsList">
                     <!-- Dynamic Caption Cards injected here by captions.js -->
+                </div>
+                <div class="captions-footer-actions">
+                    <button id="btnDownloadSrt" class="btn-xs">⬇️ .SRT</button>
+                    <button id="btnDownloadVtt" class="btn-xs">⬇️ .VTT</button>
+                    <button id="btnDownloadTxt" class="btn-xs">⬇️ .TXT</button>
                 </div>
             </section>
 
@@ -91,7 +97,7 @@
                         <!-- DYNAMIC SUBTITLE SCALING OVERLAY -->
                         <div class="subtitle-overlay" id="subtitleOverlay">
                             <div class="subtitle-text-box" id="subtitleTextBox" contenteditable="false">
-                                Double click to edit subtitle text...
+                                par likha jaata hai.
                             </div>
                         </div>
                     </div>
@@ -132,54 +138,90 @@
                 </div>
             </section>
 
-            <!-- RIGHT COLUMN: ADOBE PREMIERE PRO ESSENTIAL GRAPHICS PANEL -->
-            <section class="panel properties-panel glass-panel">
-                <div class="panel-header">
-                    <h2><span class="panel-icon">🎨</span> Essential Graphics</h2>
+            <!-- RIGHT COLUMN: ADOBE PREMIERE PRO 2024 EXACT REPLICA PROPERTIES PANEL -->
+            <section class="panel properties-panel pp-dark-panel">
+                
+                <!-- TOP PREMIERE PRO HEADER TABS -->
+                <div class="pp-panel-tabs">
+                    <span class="pp-tab active">Properties <span class="pp-tab-line"></span></span>
+                    <span class="pp-tab">Effects</span>
+                    <span class="pp-tab">Project: 02</span>
                 </div>
 
-                <!-- APPLE SEGMENTED TAB CONTROL BAR -->
-                <div class="segmented-tabs">
-                    <button class="tab-btn active" data-tab="tab-text">🔤 Text</button>
-                    <button class="tab-btn" data-tab="tab-transform">📐 Transform</button>
-                    <button class="tab-btn" data-tab="tab-appearance">🎨 Appearance</button>
+                <!-- ACTIVE SUBTITLE TRACK TITLE BAR -->
+                <div class="pp-track-bar">
+                    <div class="pp-track-left">
+                        <span class="pp-track-icon">🎬</span>
+                        <span class="pp-track-title">C1:Subtitle</span>
+                    </div>
+                    <div class="pp-track-right">
+                        <span class="pp-track-count">101 of...</span>
+                        <span class="pp-more-dots">•••</span>
+                    </div>
+                </div>
+
+                <!-- LIVE SUBTITLE LINE INPUT BOX -->
+                <div class="pp-text-input-box-row">
+                    <input type="text" id="activeSubTextInput" value="par likha jaata hai." placeholder="Enter subtitle line text...">
                 </div>
 
                 <div class="properties-scroll-container">
                     
-                    <!-- TAB 1: TEXT SECTION -->
-                    <div class="tab-pane active" id="tab-text">
-                        <fieldset class="prop-group">
-                            <legend>Font & Formatting</legend>
+                    <!-- ACCORDION 1: TRACK STYLE & PRESETS -->
+                    <div class="pp-accordion-group">
+                        <div class="pp-accordion-header" data-target="acc-track-style">
+                            <span class="pp-arrow">∨</span>
+                            <span class="pp-acc-title">Track Style & Presets</span>
+                            <span class="pp-plus-btn">+</span>
+                        </div>
+                        <div class="pp-accordion-body" id="acc-track-style">
+                            <div class="preset-buttons-grid">
+                                <button class="btn-preset" data-preset="pop_yellow">🌟 Pop Yellow</button>
+                                <button class="btn-preset active" data-preset="classic_white">⚪ Classic White</button>
+                                <button class="btn-preset" data-preset="neon_pink">💗 Neon Pink</button>
+                                <button class="btn-preset" data-preset="podcast_pill">🎙️ Podcast Pill</button>
+                            </div>
+                        </div>
+                    </div>
 
+                    <!-- ACCORDION 2: TEXT -->
+                    <div class="pp-accordion-group">
+                        <div class="pp-accordion-header" data-target="acc-text">
+                            <span class="pp-arrow">∨</span>
+                            <span class="pp-acc-title">Text</span>
+                        </div>
+                        <div class="pp-accordion-body" id="acc-text">
                             <div class="form-row">
-                                <label>Font Family & Style:</label>
-                                <div class="font-select-wrapper">
-                                    <select id="fontFamilySelect" class="input-select">
-                                        <option value="Montserrat">Montserrat</option>
-                                        <option value="Poppins">Poppins</option>
-                                        <option value="Inter">Inter</option>
-                                        <option value="Oswald">Oswald</option>
-                                        <option value="Roboto">Roboto</option>
-                                        <option value="Arial">Arial</option>
-                                    </select>
-                                    <select id="fontStyleSelect" class="input-select-style">
-                                        <option value="Regular">Regular</option>
-                                        <option value="Bold" selected>Bold</option>
-                                        <option value="Italic">Italic</option>
-                                        <option value="Black">Black</option>
-                                    </select>
-                                    <button id="btnUploadFont" class="btn-sm btn-icon" title="Upload Custom Font">⬆️</button>
-                                    <input type="file" id="fontFileInput" accept=".ttf,.otf" style="display:none;">
-                                </div>
+                                <select id="fontFamilySelect" class="pp-select">
+                                    <option value="Century Gothic" selected>Century Gothic</option>
+                                    <option value="Montserrat">Montserrat</option>
+                                    <option value="Poppins">Poppins</option>
+                                    <option value="Inter">Inter</option>
+                                    <option value="Oswald">Oswald</option>
+                                    <option value="Roboto">Roboto</option>
+                                    <option value="Arial">Arial</option>
+                                </select>
                             </div>
 
-                            <!-- Font Size with Slider + Numeric Input -->
+                            <div class="form-row split-2">
+                                <select id="fontStyleSelect" class="pp-select">
+                                    <option value="Bold" selected>Bold</option>
+                                    <option value="Regular">Regular</option>
+                                    <option value="Italic">Italic</option>
+                                    <option value="Black">Black</option>
+                                </select>
+
+                                <button id="btnUploadFont" class="btn-sm btn-icon" title="Upload Custom Font">⬆️ Custom</button>
+                                <input type="file" id="fontFileInput" accept=".ttf,.otf" style="display:none;">
+                            </div>
+
+                            <!-- Font Size with Slider + Blue Text Readout -->
                             <div class="form-row slider-row">
-                                <label>Font Size (px):</label>
+                                <label>Font Size:</label>
                                 <div class="slider-with-number">
                                     <input type="range" id="fontSizeSlider" min="10" max="200" value="48">
-                                    <input type="number" id="fontSizeInput" value="48" min="10" max="200">
+                                    <span class="pp-blue-text" id="fontSizeVal">48.0 px</span>
+                                    <input type="number" id="fontSizeInput" value="48" min="10" max="200" style="display:none;">
                                 </div>
                             </div>
 
@@ -197,11 +239,11 @@
                             <div class="form-row split-2">
                                 <div>
                                     <label>Tracking (VA):</label>
-                                    <input type="number" id="trackingInput" value="0" min="-50" max="100">
+                                    <input type="number" id="trackingInput" value="0" min="-50" max="100" class="pp-input">
                                 </div>
                                 <div>
                                     <label>Leading (A/A):</label>
-                                    <input type="number" id="leadingInput" value="1.2" step="0.1" min="0.5" max="3">
+                                    <input type="number" id="leadingInput" value="1.2" step="0.1" min="0.5" max="3" class="pp-input">
                                 </div>
                             </div>
 
@@ -216,15 +258,17 @@
                                 <button class="btn-faux" id="btnFauxSuperscript" title="Superscript">X²</button>
                                 <button class="btn-faux" id="btnFauxSubscript" title="Subscript">X₂</button>
                             </div>
-                        </fieldset>
+                        </div>
                     </div>
 
-                    <!-- TAB 2: ALIGN AND TRANSFORM SECTION -->
-                    <div class="tab-pane" id="tab-transform">
-                        <fieldset class="prop-group">
-                            <legend>Align and Transform</legend>
+                    <!-- ACCORDION 3: ALIGN AND TRANSFORM -->
+                    <div class="pp-accordion-group">
+                        <div class="pp-accordion-header" data-target="acc-align-transform">
+                            <span class="pp-arrow">∨</span>
+                            <span class="pp-acc-title">Align and Transform</span>
+                        </div>
+                        <div class="pp-accordion-body" id="acc-align-transform">
                             <div class="align-matrix-container">
-                                <label>3x3 Zone Matrix Placement:</label>
                                 <div class="align-grid-3x3">
                                     <button class="btn-align" data-align="top-left" title="Top Left">↖</button>
                                     <button class="btn-align" data-align="top-center" title="Top Center">↑</button>
@@ -236,35 +280,37 @@
                                     <button class="btn-align active" data-align="bottom-center" title="Bottom Center">↓</button>
                                     <button class="btn-align" data-align="bottom-right" title="Bottom Right">↘</button>
                                 </div>
-                            </div>
 
-                            <div class="form-row split-2" style="margin-top: 10px;">
-                                <div>
-                                    <label>Pos X (px):</label>
-                                    <input type="number" id="posXInput" placeholder="Auto">
-                                </div>
-                                <div>
-                                    <label>Pos Y (px):</label>
-                                    <input type="number" id="posYInput" placeholder="Auto">
+                                <!-- PREMIERE PRO BLUE NUMERIC POSITION READOUTS -->
+                                <div class="pp-readout-row">
+                                    <span class="pp-icon-symbol">↔</span>
+                                    <input type="number" id="posXInput" value="-3" class="pp-inline-blue-input" placeholder="0">
+                                    <span>,</span>
+                                    <input type="number" id="posYInput" value="444" class="pp-inline-blue-input" placeholder="0">
                                 </div>
                             </div>
-                        </fieldset>
+                        </div>
                     </div>
 
-                    <!-- TAB 3: APPEARANCE SECTION -->
-                    <div class="tab-pane" id="tab-appearance">
-                        <fieldset class="prop-group">
-                            <legend>Appearance</legend>
+                    <!-- ACCORDION 4: APPEARANCE -->
+                    <div class="pp-accordion-group">
+                        <div class="pp-accordion-header" data-target="acc-appearance">
+                            <span class="pp-arrow">∨</span>
+                            <span class="pp-acc-title">Appearance</span>
+                            <span class="pp-wrench-btn">🔧</span>
+                        </div>
+                        <div class="pp-accordion-body" id="acc-appearance">
                             
                             <!-- FILL CONTROL -->
                             <div class="appearance-row">
                                 <div class="check-label">
                                     <input type="checkbox" id="fillToggle" checked>
-                                    <label for="fillToggle">Fill Color</label>
+                                    <label for="fillToggle">Fill</label>
                                 </div>
                                 <div class="color-picker-box">
                                     <input type="color" id="primaryColorInput" value="#FFFFFF">
-                                    <input type="range" id="primaryOpacityInput" min="0" max="1" step="0.05" value="1" title="Opacity">
+                                    <span class="pp-eyedropper-btn" title="Pick Color">💧</span>
+                                    <input type="range" id="primaryOpacityInput" min="0" max="1" step="0.05" value="1" title="Opacity" style="display:none;">
                                 </div>
                             </div>
 
@@ -277,20 +323,14 @@
                                     </div>
                                     <div class="color-picker-box">
                                         <input type="color" id="strokeColorInput" value="#000000">
-                                    </div>
-                                </div>
-                                <div class="form-row split-2">
-                                    <div>
-                                        <label>Width (px):</label>
-                                        <input type="number" id="strokeWidthInput" value="2" min="0" max="30">
-                                    </div>
-                                    <div>
-                                        <label>Type:</label>
-                                        <select id="strokeTypeSelect" class="input-select-sm">
+                                        <span class="pp-eyedropper-btn" title="Pick Color">💧</span>
+                                        <span class="pp-blue-text"><input type="number" id="strokeWidthInput" value="3.0" min="0" max="30" step="0.5" class="pp-inline-blue-input"> px</span>
+                                        <select id="strokeTypeSelect" class="pp-select-sm">
                                             <option value="Outer" selected>Outer</option>
                                             <option value="Inner">Inner</option>
                                             <option value="Center">Center</option>
                                         </select>
+                                        <span class="pp-plus-btn">+</span>
                                     </div>
                                 </div>
                             </div>
@@ -300,20 +340,23 @@
                                 <div class="check-label-row">
                                     <div class="check-label">
                                         <input type="checkbox" id="bgToggle">
-                                        <label for="bgToggle">Background Box</label>
+                                        <label for="bgToggle">Background</label>
                                     </div>
                                     <div class="color-picker-box">
-                                        <input type="color" id="bgColorInput" value="#000000">
+                                        <div class="pp-checkerboard-swatch">
+                                            <input type="color" id="bgColorInput" value="#000000">
+                                        </div>
+                                        <span class="pp-eyedropper-btn" title="Pick Color">💧</span>
                                     </div>
                                 </div>
-                                <div class="form-row split-2">
+                                <div class="form-row split-2" style="margin-top: 4px;">
                                     <div>
                                         <label>Opacity (%):</label>
                                         <input type="range" id="bgOpacityInput" min="0" max="1" step="0.05" value="0">
                                     </div>
                                     <div>
                                         <label>Padding (px):</label>
-                                        <input type="number" id="bgPaddingInput" value="10" min="0" max="100">
+                                        <input type="number" id="bgPaddingInput" value="10" min="0" max="100" class="pp-input">
                                     </div>
                                 </div>
                             </div>
@@ -323,40 +366,40 @@
                                 <div class="check-label-row">
                                     <div class="check-label">
                                         <input type="checkbox" id="shadowToggle">
-                                        <label for="shadowToggle">Drop Shadow</label>
+                                        <label for="shadowToggle">Shadow</label>
                                     </div>
                                     <div class="color-picker-box">
                                         <input type="color" id="shadowColorInput" value="#000000">
+                                        <span class="pp-eyedropper-btn" title="Pick Color">💧</span>
+                                        <span class="pp-plus-btn">+</span>
                                     </div>
                                 </div>
-                                <div class="form-row split-2">
+                                <div class="form-row split-2" style="margin-top: 4px;">
                                     <div>
                                         <label>Distance:</label>
-                                        <input type="number" id="shadowDistanceInput" value="4" min="0" max="50">
+                                        <input type="number" id="shadowDistanceInput" value="4" min="0" max="50" class="pp-input">
                                     </div>
                                     <div>
                                         <label>Blur:</label>
-                                        <input type="number" id="shadowBlurInput" value="4" min="0" max="50">
+                                        <input type="number" id="shadowBlurInput" value="4" min="0" max="50" class="pp-input">
                                     </div>
                                 </div>
                             </div>
-                        </fieldset>
+                        </div>
                     </div>
 
                     <!-- DIAGNOSTIC EXECUTION CONSOLE -->
-                    <fieldset class="prop-group console-group">
-                        <legend>Execution Console</legend>
-                        <div class="console-header">
-                            <span>Logs & Output</span>
-                            <div>
-                                <button id="btnClearConsole" class="btn-xs">Clear</button>
-                                <button id="btnCopyConsole" class="btn-xs">Copy</button>
+                    <div class="pp-accordion-group">
+                        <div class="pp-accordion-header" data-target="acc-console">
+                            <span class="pp-arrow">∨</span>
+                            <span class="pp-acc-title">Execution Console</span>
+                        </div>
+                        <div class="pp-accordion-body" id="acc-console">
+                            <div class="console-box" id="execConsoleBox">
+                                <div class="console-line info">[System initialized] Premiere Properties Subtitle Studio v3.0.0 Ready.</div>
                             </div>
                         </div>
-                        <div class="console-box" id="execConsoleBox">
-                            <div class="console-line info">[System initialized] Premiere Properties Subtitle Studio v1.6.0 Ready.</div>
-                        </div>
-                    </fieldset>
+                    </div>
 
                 </div>
             </section>

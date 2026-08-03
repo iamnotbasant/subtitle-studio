@@ -1,14 +1,14 @@
 /**
- * Pixel-Perfect Premiere Pro Essential Graphics State Manager, Segmented Tabs & 60fps Overlay Scaling Engine
+ * Pixel-Perfect Premiere Pro 2024 Essential Graphics & Presets State Manager
  */
 
 const styleState = {
-    fontFamily: 'Montserrat',
+    fontFamily: 'Century Gothic',
     fontStyle: 'Bold',
     fontSize: 48,
     tracking: 0,
     leading: 1.2,
-    bold: false,
+    bold: true,
     italic: false,
     allCaps: false,
     smallCaps: false,
@@ -18,14 +18,14 @@ const styleState = {
     subscript: false,
     alignment: 'bottom-center',
     textAlign: 'center',
-    posX: null,
-    posY: null,
+    posX: -3,
+    posY: 444,
     fillEnabled: true,
     primaryColor: '#FFFFFF',
     primaryOpacity: 1.0,
     strokeEnabled: true,
     strokeColor: '#000000',
-    strokeWidth: 2,
+    strokeWidth: 3.0,
     strokeType: 'Outer',
     bgEnabled: false,
     bgColor: '#000000',
@@ -64,6 +64,94 @@ function hexToRgba(hex, opacity = 1.0) {
     return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
+function applyPresetStyle(presetKey) {
+    if (presetKey === 'pop_yellow') {
+        styleState.fontFamily = 'Montserrat';
+        styleState.fontStyle = 'Black';
+        styleState.fontSize = 54;
+        styleState.primaryColor = '#FFDE00';
+        styleState.strokeEnabled = true;
+        styleState.strokeColor = '#000000';
+        styleState.strokeWidth = 4.0;
+        styleState.bgEnabled = false;
+        styleState.shadowEnabled = true;
+        styleState.shadowColor = '#000000';
+    } else if (presetKey === 'classic_white') {
+        styleState.fontFamily = 'Century Gothic';
+        styleState.fontStyle = 'Bold';
+        styleState.fontSize = 48;
+        styleState.primaryColor = '#FFFFFF';
+        styleState.strokeEnabled = true;
+        styleState.strokeColor = '#000000';
+        styleState.strokeWidth = 3.0;
+        styleState.bgEnabled = false;
+        styleState.shadowEnabled = false;
+    } else if (presetKey === 'neon_pink') {
+        styleState.fontFamily = 'Poppins';
+        styleState.fontStyle = 'Bold';
+        styleState.fontSize = 52;
+        styleState.primaryColor = '#FF007F';
+        styleState.strokeEnabled = true;
+        styleState.strokeColor = '#00F3FF';
+        styleState.strokeWidth = 3.0;
+        styleState.bgEnabled = false;
+        styleState.shadowEnabled = true;
+        styleState.shadowColor = '#00F3FF';
+    } else if (presetKey === 'podcast_pill') {
+        styleState.fontFamily = 'Inter';
+        styleState.fontStyle = 'Regular';
+        styleState.fontSize = 44;
+        styleState.primaryColor = '#FFFFFF';
+        styleState.strokeEnabled = false;
+        styleState.bgEnabled = true;
+        styleState.bgColor = '#000000';
+        styleState.bgOpacity = 0.65;
+        styleState.bgPadding = 12;
+        styleState.shadowEnabled = false;
+    }
+
+    syncUiControlsWithState();
+    requestApplyStyling();
+    logExec(`Applied preset style: ${presetKey}`, "info");
+}
+
+function syncUiControlsWithState() {
+    const fontSelect = document.getElementById('fontFamilySelect');
+    if (fontSelect) fontSelect.value = styleState.fontFamily;
+
+    const fontStyleSelect = document.getElementById('fontStyleSelect');
+    if (fontStyleSelect) fontStyleSelect.value = styleState.fontStyle;
+
+    const sizeSlider = document.getElementById('fontSizeSlider');
+    const sizeValText = document.getElementById('fontSizeVal');
+    if (sizeSlider) sizeSlider.value = styleState.fontSize;
+    if (sizeValText) sizeValText.textContent = `${styleState.fontSize}.0 px`;
+
+    const primaryColor = document.getElementById('primaryColorInput');
+    if (primaryColor) primaryColor.value = styleState.primaryColor;
+
+    const strokeToggle = document.getElementById('strokeToggle');
+    if (strokeToggle) strokeToggle.checked = styleState.strokeEnabled;
+
+    const strokeColor = document.getElementById('strokeColorInput');
+    if (strokeColor) strokeColor.value = styleState.strokeColor;
+
+    const strokeWidth = document.getElementById('strokeWidthInput');
+    if (strokeWidth) strokeWidth.value = styleState.strokeWidth;
+
+    const bgToggle = document.getElementById('bgToggle');
+    if (bgToggle) bgToggle.checked = styleState.bgEnabled;
+
+    const bgColor = document.getElementById('bgColorInput');
+    if (bgColor) bgColor.value = styleState.bgColor;
+
+    const bgOpacity = document.getElementById('bgOpacityInput');
+    if (bgOpacity) bgOpacity.value = styleState.bgOpacity;
+
+    const shadowToggle = document.getElementById('shadowToggle');
+    if (shadowToggle) shadowToggle.checked = styleState.shadowEnabled;
+}
+
 function requestApplyStyling() {
     if (!rafPending) {
         rafPending = true;
@@ -81,7 +169,6 @@ function applyStyling() {
     const containerHeight = container.clientHeight || 720;
     const scaleFactor = Math.max(0.3, containerHeight / 1080.0);
 
-    // 3x3 Canvas Zone Alignment Placement
     if (styleState.posX !== null && styleState.posY !== null && !isNaN(styleState.posX) && !isNaN(styleState.posY)) {
         overlay.style.alignItems = 'flex-start';
         overlay.style.justifyContent = 'flex-start';
@@ -136,7 +223,7 @@ function applyStyling() {
     }
 
     // Typography
-    textBox.style.fontFamily = `"${styleState.fontFamily}", sans-serif`;
+    textBox.style.fontFamily = `"${styleState.fontFamily}", "Montserrat", sans-serif`;
     const scaledFontSize = Math.round(styleState.fontSize * scaleFactor);
     textBox.style.fontSize = `${Math.max(12, scaledFontSize)}px`;
     textBox.style.letterSpacing = `${styleState.tracking * scaleFactor}px`;
@@ -155,7 +242,7 @@ function applyStyling() {
     const isBoldStyle = styleState.bold || fontStyleLower === 'bold' || fontStyleLower === 'black';
     const isItalicStyle = styleState.italic || fontStyleLower === 'italic';
 
-    textBox.style.fontWeight = isBoldStyle ? (fontStyleLower === 'black' ? '900' : '800') : '400';
+    textBox.style.fontWeight = isBoldStyle ? (fontStyleLower === 'black' ? '900' : '700') : '400';
     textBox.style.fontStyle = isItalicStyle ? 'italic' : 'normal';
     textBox.style.textTransform = styleState.allCaps ? 'uppercase' : (styleState.smallCaps ? 'capitalize' : 'none');
 
@@ -164,9 +251,10 @@ function applyStyling() {
     if (styleState.strikethrough) textDecoration.push('line-through');
     textBox.style.textDecoration = textDecoration.length > 0 ? textDecoration.join(' ') : 'none';
 
-    // Stroke / Webkit Text Stroke
+    // Stroke / Webkit Text Stroke (Outer Stroke order)
     if (styleState.strokeEnabled && styleState.strokeWidth > 0) {
         const scaledStroke = Math.max(1, Math.round(styleState.strokeWidth * scaleFactor));
+        textBox.style.paintOrder = 'stroke fill';
         textBox.style.webkitTextStroke = `${scaledStroke}px ${styleState.strokeColor}`;
     } else {
         textBox.style.webkitTextStroke = '0px transparent';
@@ -190,45 +278,59 @@ function applyStyling() {
         const shadowRgba = hexToRgba(styleState.shadowColor, 0.7);
         textBox.style.textShadow = `${shadowDist}px ${shadowDist}px ${shadowBlur}px ${shadowRgba}`;
     } else {
-        textBox.style.textShadow = 'none';
+        textBox.style.textShadow = `0px ${2 * scaleFactor}px ${4 * scaleFactor}px rgba(0,0,0,0.8)`;
     }
 }
 
-function initSegmentedTabs() {
-    const tabBtns = document.querySelectorAll('.segmented-tabs .tab-btn');
-    const tabPanes = document.querySelectorAll('.tab-pane');
-
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            tabBtns.forEach(b => b.classList.remove('active'));
-            tabPanes.forEach(p => p.classList.remove('active'));
-
-            btn.classList.add('active');
-            const targetId = btn.dataset.tab;
-            const targetPane = document.getElementById(targetId);
-            if (targetPane) targetPane.classList.add('active');
+function initAccordions() {
+    const headers = document.querySelectorAll('.pp-accordion-header');
+    headers.forEach(hdr => {
+        hdr.addEventListener('click', () => {
+            const group = hdr.parentElement;
+            if (group) group.classList.toggle('collapsed');
         });
     });
 }
 
 function initPropertiesListeners() {
-    initSegmentedTabs();
+    initAccordions();
+
+    const presetBtns = document.querySelectorAll('.btn-preset');
+    presetBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            presetBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            applyPresetStyle(btn.dataset.preset);
+        });
+    });
 
     const sizeSlider = document.getElementById('fontSizeSlider');
     const sizeInput = document.getElementById('fontSizeInput');
-    if (sizeSlider && sizeInput) {
+    const sizeValText = document.getElementById('fontSizeVal');
+    if (sizeSlider) {
         sizeSlider.addEventListener('input', (e) => {
             const val = parseInt(e.target.value);
-            sizeInput.value = val;
+            if (sizeInput) sizeInput.value = val;
+            if (sizeValText) sizeValText.textContent = `${val}.0 px`;
             styleState.fontSize = val;
             requestApplyStyling();
         });
+    }
 
-        sizeInput.addEventListener('input', (e) => {
-            const val = parseInt(e.target.value) || 12;
-            sizeSlider.value = val;
-            styleState.fontSize = val;
-            requestApplyStyling();
+    const activeSubInput = document.getElementById('activeSubTextInput');
+    if (activeSubInput) {
+        activeSubInput.addEventListener('input', (e) => {
+            const val = e.target.value;
+            const textBox = document.getElementById('subtitleTextBox');
+            if (textBox) textBox.innerText = val;
+
+            const video = document.getElementById('mainVideoPlayer');
+            const activeCap = getActiveCaptionForTime(video ? video.currentTime : 0);
+            if (activeCap) {
+                activeCap.text = val;
+                if (typeof renderCaptionsList === 'function') renderCaptionsList();
+                if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
+            }
         });
     }
 
@@ -240,7 +342,7 @@ function initPropertiesListeners() {
         { id: 'primaryColorInput', prop: 'primaryColor' },
         { id: 'primaryOpacityInput', prop: 'primaryOpacity', isFloat: true },
         { id: 'strokeColorInput', prop: 'strokeColor' },
-        { id: 'strokeWidthInput', prop: 'strokeWidth', isNum: true },
+        { id: 'strokeWidthInput', prop: 'strokeWidth', isFloat: true },
         { id: 'strokeTypeSelect', prop: 'strokeType' },
         { id: 'bgColorInput', prop: 'bgColor' },
         { id: 'bgOpacityInput', prop: 'bgOpacity', isFloat: true },
