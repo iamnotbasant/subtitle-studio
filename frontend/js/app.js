@@ -1,5 +1,5 @@
 /**
- * Main Application Orchestrator, Hotkeys, Dynamic @font-face Injector & History Manager (v8.0.0)
+ * Main Application Orchestrator, Hotkeys, Dynamic @font-face Injector & History Manager (v8.1.0)
  */
 
 let currentLoadedVideoPath = "";

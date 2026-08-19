@@ -1,5 +1,5 @@
 /**
- * Captions Data State Manager, Undo/Redo Engine, Split/Cut Tools & Exporters (v8.0.0)
+ * Captions Data State Manager, Undo/Redo Engine, Split/Cut Tools & Exporters (v8.1.0)
  */
 
 let captionsData = [

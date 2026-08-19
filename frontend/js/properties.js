@@ -1,5 +1,5 @@
 /**
- * Adobe Premiere Pro 2024 Exact Mathematical Canvas Engine & Properties State Manager (v6.0.0)
+ * Adobe Premiere Pro 2024 Exact Mathematical Canvas Engine & Properties State Manager (v8.1.0)
  */
 
 const styleState = {
@@ -18,7 +18,7 @@ const styleState = {
     subscript: false,
     alignment: 'bottom-center',
     textAlign: 'center',
-    posX: -3,
+    posX: 0,
     posY: 444,
     fillEnabled: true,
     primaryColor: '#FFFFFF',
@@ -113,17 +113,17 @@ function applyPresetStyle(presetKey) {
 
     syncUiControlsWithState();
     requestApplyStyling();
-    logExec(`Applied preset style: ${presetKey}`, "info");
+    logExec(`Applied preset style across all captions: ${presetKey}`, "info");
 }
 
 function resetPosition() {
     styleState.alignment = 'bottom-center';
-    styleState.posX = -3;
+    styleState.posX = 0;
     styleState.posY = 444;
 
     const posXInput = document.getElementById('posXInput');
     const posYInput = document.getElementById('posYInput');
-    if (posXInput) posXInput.value = -3;
+    if (posXInput) posXInput.value = 0;
     if (posYInput) posYInput.value = 444;
 
     const alignBtns = document.querySelectorAll('.btn-align');
@@ -132,7 +132,7 @@ function resetPosition() {
     });
 
     requestApplyStyling();
-    logExec("Reset subtitle position to default bottom-center (Y: 444).", "info");
+    logExec("Reset subtitle position to default bottom-center (X: 0, Y: 444).", "info");
 }
 
 function syncUiControlsWithState() {
@@ -186,7 +186,7 @@ function applyStyling() {
     const { overlay, textBox, container, video } = getDomCache();
     if (!overlay || !textBox || !container) return;
 
-    // Detect Sequence Aspect Ratio (Default 1080x1920 for vertical video)
+    // Detect Sequence Aspect Ratio (Default 1080x1920 for vertical video, 1920x1080 for horizontal)
     let refWidth = 1080.0;
     let refHeight = 1920.0;
     if (video && video.videoWidth && video.videoHeight) {
@@ -202,12 +202,12 @@ function applyStyling() {
     const containerW = container.clientWidth || 360;
     const containerH = container.clientHeight || 640;
 
-    // Font Size Scaling Math relative to Sequence Reference Height (1920px)
+    // Font Size Scaling Math relative to Sequence Reference Height (1920px vertical / 1080px horizontal)
     const scaleFactorHeight = containerH / refHeight;
     const scaledFontSize = Math.round(styleState.fontSize * scaleFactorHeight);
     textBox.style.fontSize = `${Math.max(12, scaledFontSize)}px`;
 
-    // Ensure single horizontal line text display (No unwanted line wrapping!)
+    // Ensure single horizontal line text display with proper whitespace handling
     const currentText = textBox.innerText || "";
     if (currentText.includes('\n')) {
         textBox.style.whiteSpace = 'pre-wrap';
@@ -215,78 +215,28 @@ function applyStyling() {
         textBox.style.whiteSpace = 'nowrap';
     }
 
-    // Premiere Pro Sequence Position Math (Center relative offset)
-    if (styleState.posX !== null && styleState.posY !== null && !isNaN(styleState.posX) && !isNaN(styleState.posY)) {
-        overlay.style.alignItems = 'flex-start';
-        overlay.style.justifyContent = 'flex-start';
-        textBox.style.position = 'absolute';
+    // Exact Adobe Premiere Pro / Center Origin Transform Anchoring
+    // Ensures any subtitle text length stays 100% horizontally centered at all times
+    const scaleX = containerW / refWidth;
+    const scaleY = containerH / refHeight;
+    const posXVal = (styleState.posX !== null && !isNaN(styleState.posX)) ? styleState.posX : 0;
+    const posYVal = (styleState.posY !== null && !isNaN(styleState.posY)) ? styleState.posY : 444;
 
-        const scaleX = containerW / refWidth;
-        const scaleY = containerH / refHeight;
+    const offsetX = Math.round(posXVal * scaleX);
+    const offsetY = Math.round(posYVal * scaleY);
 
-        const textW = textBox.offsetWidth || 100;
-        const textH = textBox.offsetHeight || 30;
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    textBox.style.position = 'absolute';
+    textBox.style.left = '50%';
+    textBox.style.top = '50%';
+    textBox.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
 
-        const centerX = containerW / 2.0;
-        const centerY = containerH / 2.0;
-
-        const targetX = centerX + (styleState.posX * scaleX) - (textW / 2.0);
-        const targetY = centerY + (styleState.posY * scaleY) - (textH / 2.0);
-
-        textBox.style.left = `${Math.round(targetX)}px`;
-        textBox.style.top = `${Math.round(targetY)}px`;
-    } else {
-        textBox.style.position = 'relative';
-        textBox.style.left = 'auto';
-        textBox.style.top = 'auto';
-        
-        switch (styleState.alignment) {
-            case 'top-left':
-                overlay.style.alignItems = 'flex-start';
-                overlay.style.justifyContent = 'flex-start';
-                break;
-            case 'top-center':
-                overlay.style.alignItems = 'flex-start';
-                overlay.style.justifyContent = 'center';
-                break;
-            case 'top-right':
-                overlay.style.alignItems = 'flex-start';
-                overlay.style.justifyContent = 'flex-end';
-                break;
-            case 'middle-left':
-                overlay.style.alignItems = 'center';
-                overlay.style.justifyContent = 'flex-start';
-                break;
-            case 'center':
-            case 'middle-center':
-                overlay.style.alignItems = 'center';
-                overlay.style.justifyContent = 'center';
-                break;
-            case 'middle-right':
-                overlay.style.alignItems = 'center';
-                overlay.style.justifyContent = 'flex-end';
-                break;
-            case 'bottom-left':
-                overlay.style.alignItems = 'flex-end';
-                overlay.style.justifyContent = 'flex-start';
-                break;
-            case 'bottom-right':
-                overlay.style.alignItems = 'flex-end';
-                overlay.style.justifyContent = 'flex-end';
-                break;
-            case 'bottom-center':
-            default:
-                overlay.style.alignItems = 'flex-end';
-                overlay.style.justifyContent = 'center';
-                break;
-        }
-    }
-
-    // Typography
+    // Typography & Paragraph Alignment
     textBox.style.fontFamily = `"${styleState.fontFamily}", "Montserrat", sans-serif`;
     textBox.style.letterSpacing = `${styleState.tracking * scaleFactorHeight}px`;
     textBox.style.lineHeight = `${styleState.leading}`;
-    textBox.style.textAlign = styleState.textAlign;
+    textBox.style.textAlign = styleState.textAlign || 'center';
 
     // Fill Color
     if (styleState.fillEnabled) {
@@ -296,7 +246,7 @@ function applyStyling() {
     }
 
     // Faux Formatting & Font Styles
-    const fontStyleLower = styleState.fontStyle.toLowerCase();
+    const fontStyleLower = (styleState.fontStyle || "").toLowerCase();
     const isBoldStyle = styleState.bold || fontStyleLower === 'bold' || fontStyleLower === 'black';
     const isItalicStyle = styleState.italic || fontStyleLower === 'italic';
 
@@ -371,8 +321,8 @@ function initPropertiesListeners() {
     const sizeInput = document.getElementById('fontSizeInput');
     const sizeValText = document.getElementById('fontSizeVal');
     if (sizeSlider) {
-        sizeSlider.value = 75;
-        if (sizeValText) sizeValText.textContent = "75.0 px";
+        sizeSlider.value = styleState.fontSize;
+        if (sizeValText) sizeValText.textContent = `${styleState.fontSize}.0 px`;
         sizeSlider.addEventListener('input', (e) => {
             const val = parseInt(e.target.value);
             if (sizeInput) sizeInput.value = val;
@@ -450,13 +400,13 @@ function initPropertiesListeners() {
 
     const posXInput = document.getElementById('posXInput');
     const posYInput = document.getElementById('posYInput');
-    if (posXInput) posXInput.value = -3;
-    if (posYInput) posYInput.value = 444;
+    if (posXInput) posXInput.value = styleState.posX;
+    if (posYInput) posYInput.value = styleState.posY;
 
     if (posXInput) {
         posXInput.addEventListener('input', (e) => {
             const val = e.target.value.trim();
-            styleState.posX = val === "" ? null : parseInt(val);
+            styleState.posX = val === "" ? 0 : parseInt(val);
             requestApplyStyling();
         });
     }
@@ -464,7 +414,7 @@ function initPropertiesListeners() {
     if (posYInput) {
         posYInput.addEventListener('input', (e) => {
             const val = e.target.value.trim();
-            styleState.posY = val === "" ? null : parseInt(val);
+            styleState.posY = val === "" ? 0 : parseInt(val);
             requestApplyStyling();
         });
     }
@@ -475,7 +425,15 @@ function initPropertiesListeners() {
             paraBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             styleState.textAlign = btn.dataset.align;
+
+            // When Center paragraph alignment is selected, ensure horizontal center alignment (X = 0)
+            if (btn.dataset.align === 'center') {
+                styleState.posX = 0;
+                if (posXInput) posXInput.value = 0;
+            }
+
             requestApplyStyling();
+            logExec(`Paragraph text alignment set to: ${styleState.textAlign} (Applied across all captions)`, "info");
         });
     });
 
@@ -501,19 +459,90 @@ function initPropertiesListeners() {
         }
     });
 
+    const alignPositions = {
+        'top-left': { posX: -350, posY: -440 },
+        'top-center': { posX: 0, posY: -440 },
+        'top-right': { posX: 350, posY: -440 },
+        'middle-left': { posX: -350, posY: 0 },
+        'center': { posX: 0, posY: 0 },
+        'middle-right': { posX: 350, posY: 0 },
+        'bottom-left': { posX: -350, posY: 444 },
+        'bottom-center': { posX: 0, posY: 444 },
+        'bottom-right': { posX: 350, posY: 444 }
+    };
+
     const alignBtns = document.querySelectorAll('.btn-align');
     alignBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             alignBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            styleState.alignment = btn.dataset.align;
-            styleState.posX = null;
-            styleState.posY = null;
-            if (posXInput) posXInput.value = "";
-            if (posYInput) posYInput.value = "";
+            const alignKey = btn.dataset.align;
+            styleState.alignment = alignKey;
+
+            const targetPos = alignPositions[alignKey] || { posX: 0, posY: 444 };
+            styleState.posX = targetPos.posX;
+            styleState.posY = targetPos.posY;
+
+            if (posXInput) posXInput.value = styleState.posX;
+            if (posYInput) posYInput.value = styleState.posY;
+
             requestApplyStyling();
+            logExec(`Set subtitle alignment to ${alignKey} (X: ${styleState.posX}, Y: ${styleState.posY})`, "info");
         });
     });
+
+    // Program Monitor Direct Interactive On-Screen Subtitle Dragging
+    const textBox = document.getElementById('subtitleTextBox');
+    const container = document.getElementById('videoContainer');
+    if (textBox && container) {
+        let isDraggingSub = false;
+        let dragStartMouseX = 0;
+        let dragStartMouseY = 0;
+        let dragStartPosX = 0;
+        let dragStartPosY = 0;
+
+        textBox.addEventListener('mousedown', (e) => {
+            if (textBox.contentEditable === "true") return;
+            isDraggingSub = true;
+            dragStartMouseX = e.clientX;
+            dragStartMouseY = e.clientY;
+            dragStartPosX = styleState.posX || 0;
+            dragStartPosY = styleState.posY || 0;
+            e.stopPropagation();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingSub) return;
+            const refWidth = 1080.0;
+            const refHeight = 1920.0;
+            const containerW = container.clientWidth || 360;
+            const containerH = container.clientHeight || 640;
+
+            const scaleX = containerW / refWidth;
+            const scaleY = containerH / refHeight;
+
+            const deltaMouseX = e.clientX - dragStartMouseX;
+            const deltaMouseY = e.clientY - dragStartMouseY;
+
+            const newPosX = Math.round(dragStartPosX + (deltaMouseX / (scaleX || 1)));
+            const newPosY = Math.round(dragStartPosY + (deltaMouseY / (scaleY || 1)));
+
+            styleState.posX = newPosX;
+            styleState.posY = newPosY;
+
+            if (posXInput) posXInput.value = newPosX;
+            if (posYInput) posYInput.value = newPosY;
+
+            requestApplyStyling();
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDraggingSub) {
+                isDraggingSub = false;
+                logExec(`Position updated: X=${styleState.posX}, Y=${styleState.posY}`, "info");
+            }
+        });
+    }
 
     window.addEventListener('resize', requestApplyStyling);
 

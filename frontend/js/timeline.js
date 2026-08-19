@@ -1,5 +1,5 @@
 /**
- * Hardware-Accelerated Interactive Timeline Engine (Smooth Zoom, Draggable Handles & Cut Tools) v8.0.0
+ * Hardware-Accelerated Interactive Timeline Engine (Smooth Zoom, Draggable Handles & Cut Tools) v8.1.0
  */
 
 let zoomScale = 100;

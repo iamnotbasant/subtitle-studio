@@ -40,7 +40,7 @@ class RenderStyleProps(BaseModel):
     subscript: bool = False
     alignment: str = "bottom-center"
     textAlign: str = "center"
-    posX: Optional[int] = -3
+    posX: Optional[int] = 0
     posY: Optional[int] = 444
     fillEnabled: bool = True
     primaryColor: str = "#FFFFFF"
@@ -152,7 +152,7 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
         return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
     # Calculate center-origin absolute coordinates matching Premiere Pro (540 + ppPosX, 960 + ppPosY)
-    pp_pos_x = style.posX if style.posX is not None else -3
+    pp_pos_x = style.posX if style.posX is not None else 0
     pp_pos_y = style.posY if style.posY is not None else 444
 
     ref_x = 1080.0 if res_y >= res_x else 1920.0
@@ -167,7 +167,7 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
         if style.allCaps:
             text = text.upper()
 
-        tags = [f"\\pos({abs_x},{abs_y})"]
+        tags = [f"\\an5\\pos({abs_x},{abs_y})"]
         if style.tracking != 0:
             tags.append(f"\\fsp{style.tracking}")
 
