@@ -11,7 +11,15 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter:wght@300;400;600;700;800;900&family=Montserrat:wght@400;600;700;800;900&family=Oswald:wght@400;600;700&family=Poppins:wght@400;600;700;800;900&family=Questrial&family=Roboto:wght@400;500;700;900&display=swap">
     
     <!-- Dynamic Custom Fonts Style Container -->
-    <style id="dynamicCustomFontsStyle"></style>
+    <style id="dynamicCustomFontsStyle">
+        @font-face {
+            font-family: 'Century Gothic';
+            src: url('/api/custom_fonts/centurygothic_bold.ttf'),
+                 url('/centurygothic_bold.ttf');
+            font-weight: bold 700 800 900;
+            font-display: swap;
+        }
+    </style>
     
     <!-- Modular CSS Stylesheets -->
     <link rel="stylesheet" href="css/main.css">
@@ -221,11 +229,11 @@
                         <div class="pp-accordion-body" id="acc-text">
                             <div class="form-row">
                                 <select id="fontFamilySelect" class="pp-select">
-                                    <optgroup label="⭐ Custom Uploaded Fonts" id="customFontsOptGroup">
-                                        <!-- Injected dynamically by loadAvailableFonts -->
+                                    <optgroup label="⭐ Primary & Custom Fonts" id="customFontsOptGroup">
+                                        <option value="Century Gothic" selected>⭐ Century Gothic (Default Bold)</option>
                                     </optgroup>
                                     <optgroup label="🔥 Popular Subtitle Fonts">
-                                        <option value="Poppins" selected>Poppins (Clean / Viral)</option>
+                                        <option value="Poppins">Poppins (Clean / Viral)</option>
                                         <option value="Montserrat">Montserrat (Modern Heavy)</option>
                                         <option value="Bebas Neue">Bebas Neue (Tall Bold)</option>
                                         <option value="Anton">Anton (Ultra Impact)</option>
@@ -235,7 +243,6 @@
                                         <option value="Questrial">Questrial / Gothic</option>
                                     </optgroup>
                                     <optgroup label="🖥️ System Fonts">
-                                        <option value="Century Gothic">Century Gothic</option>
                                         <option value="Arial">Arial</option>
                                     </optgroup>
                                 </select>

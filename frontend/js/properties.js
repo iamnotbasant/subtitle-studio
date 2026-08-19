@@ -3,7 +3,7 @@
  */
 
 const styleState = {
-    fontFamily: 'Poppins',
+    fontFamily: 'Century Gothic',
     fontStyle: 'Bold',
     fontSize: 75,
     tracking: 0,
@@ -233,7 +233,7 @@ function applyStyling() {
     textBox.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
 
     // Typography & Paragraph Alignment
-    textBox.style.fontFamily = `"${styleState.fontFamily}", "Poppins", "Montserrat", sans-serif`;
+    textBox.style.fontFamily = `"${styleState.fontFamily}", "Century Gothic", "Poppins", sans-serif`;
     textBox.style.letterSpacing = `${styleState.tracking * scaleFactorHeight}px`;
     textBox.style.lineHeight = `${styleState.leading}`;
     textBox.style.textAlign = styleState.textAlign || 'center';

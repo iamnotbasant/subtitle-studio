@@ -1,7 +1,6 @@
 # Temp & output directories
 temp/
 exports/
-fonts/custom/
 
 # Python cache
 __pycache__/

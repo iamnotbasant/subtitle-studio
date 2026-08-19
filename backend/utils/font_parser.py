@@ -121,20 +121,40 @@ def setup_colab_linux_fontconfig():
 
 def ensure_essential_fonts():
     """
-    Ensures all essential creator fonts (Montserrat, Poppins, Inter, Oswald, Roboto, Bebas Neue, Anton, Questrial)
+    Ensures all essential creator fonts and uploaded custom fonts (centurygothic_bold.ttf)
     exist in the custom fonts directory and are registered.
     """
     CUSTOM_FONTS_DIR.mkdir(parents=True, exist_ok=True)
     
+    # 1. Check root directory and fonts directory for centurygothic_bold.ttf
+    from config import BASE_DIR
+    root_gothic = BASE_DIR / "centurygothic_bold.ttf"
+    fonts_gothic = BASE_DIR / "fonts" / "centurygothic_bold.ttf"
+    target_gothic = CUSTOM_FONTS_DIR / "centurygothic_bold.ttf"
+
+    if root_gothic.exists() and (not target_gothic.exists() or target_gothic.stat().st_size != root_gothic.stat().st_size):
+        try:
+            shutil.copy2(root_gothic, target_gothic)
+            print("[OK] Copied centurygothic_bold.ttf from root to custom fonts.")
+        except Exception:
+            pass
+    elif fonts_gothic.exists() and (not target_gothic.exists() or target_gothic.stat().st_size != fonts_gothic.stat().st_size):
+        try:
+            shutil.copy2(fonts_gothic, target_gothic)
+            print("[OK] Copied centurygothic_bold.ttf from fonts/ to custom fonts.")
+        except Exception:
+            pass
+
+    # 2. Download any missing essential creator fonts
     for filename, urls in ESSENTIAL_FONTS_MAP.items():
         font_path = CUSTOM_FONTS_DIR / filename
         if not font_path.exists() or font_path.stat().st_size < 1000:
             download_font_with_fallback(filename, urls, font_path)
 
-    # Sync with Linux/Colab fontconfig if on Linux
+    # 3. Sync with Linux/Colab fontconfig if on Linux
     setup_colab_linux_fontconfig()
 
-    # Scan & register all fonts
+    # 4. Scan & register all fonts
     fonts = scan_all_available_fonts()
     print(f"[OK] Registered {len(fonts)} font families in Subtitle Studio font engine.")
 
@@ -221,29 +241,23 @@ def resolve_ass_font_name(font_family_input: str) -> str:
     Guarantees matching between what the user selected in UI and what libass / FFmpeg expects.
     """
     if not font_family_input:
-        return "Poppins"
+        return "Century Gothic"
 
     clean_input = font_family_input.strip().strip("'\"")
+    lower_input = clean_input.lower()
+
+    # 1. Check for Century Gothic mapping (User custom font priority)
+    if lower_input in ("century gothic", "centurygothic", "century_gothic", "century gothic bold", "centurygothic-bold", "centurygothic_bold.ttf"):
+        return "Century Gothic"
     
-    # 1. Exact or case-insensitive match in registered map
+    # 2. Exact or case-insensitive match in registered map
     if clean_input in FONT_METADATA_MAP:
         meta = FONT_METADATA_MAP[clean_input]
         return meta.get("family") or meta.get("postscript_name") or clean_input
 
-    lower_input = clean_input.lower()
     if lower_input in FONT_METADATA_MAP:
         meta = FONT_METADATA_MAP[lower_input]
         return meta.get("family") or meta.get("postscript_name") or clean_input
-
-    # 2. Check for Century Gothic mapping (Colab/Linux fallback to Questrial / Poppins)
-    if lower_input in ("century gothic", "centurygothic"):
-        if "Century Gothic" in FONT_METADATA_MAP:
-            return "Century Gothic"
-        # If running on Linux/Colab where Century Gothic isn't installed, use Questrial or Poppins
-        if "Questrial" in FONT_METADATA_MAP:
-            return "Questrial"
-        if "Poppins" in FONT_METADATA_MAP:
-            return "Poppins"
 
     # 3. Check for partial matching in custom fonts
     for key, meta in FONT_METADATA_MAP.items():
