@@ -1,4 +1,5 @@
 from pathlib import Path
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -6,14 +7,27 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 
 from config import APP_VERSION, BASE_DIR
+from backend.utils.font_parser import ensure_essential_fonts, setup_colab_linux_fontconfig
 from backend.routes.stream_routes import router as stream_router
 from backend.routes.font_routes import router as font_router
 from backend.routes.render_routes import router as render_router
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager ensuring fonts and fontconfig are preloaded on startup.
+    """
+    try:
+        ensure_essential_fonts()
+    except Exception as e:
+        print(f"Font system initialization warning: {e}")
+    yield
+
 app = FastAPI(
     title="Premiere Properties Subtitle Studio API",
     version=APP_VERSION,
-    description="Modular Video Subtitle & Essential Graphics Automation Engine"
+    description="Modular Video Subtitle & Essential Graphics Automation Engine",
+    lifespan=lifespan
 )
 
 # Enable GZip compression (70%+ bandwidth & load time optimization)

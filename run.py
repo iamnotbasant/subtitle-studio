@@ -4,13 +4,11 @@ import time
 import socket
 import subprocess
 import threading
-import urllib.request
-from urllib.error import HTTPError, URLError
 from pathlib import Path
 import uvicorn
 
 from config import APP_VERSION, IS_COLAB, CUSTOM_FONTS_DIR, BASE_DIR
-from backend.utils.font_parser import scan_all_available_fonts
+from backend.utils.font_parser import ensure_essential_fonts, scan_all_available_fonts
 
 def kill_port_8000():
     """
@@ -38,68 +36,7 @@ def kill_port_8000():
                     subprocess.run(f"taskkill /F /PID {pid}", shell=True, capture_output=True)
         except Exception:
             pass
-    time.sleep(1.0)
-
-def download_font_with_fallback(filename: str, urls: list, target_path: Path):
-    """
-    Downloads font file using user-agent headers and multi-URL fallback mechanism without throwing 404 exceptions.
-    """
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-    
-    for url in urls:
-        try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=10) as response:
-                if response.status == 200:
-                    content = response.read()
-                    if len(content) > 1000:  # Ensure valid non-empty font binary
-                        with open(target_path, "wb") as f:
-                            f.write(content)
-                        print(f" Successfully downloaded font: {filename}")
-                        return True
-        except (HTTPError, URLError, Exception):
-            continue
-            
-    print(f" Warning: Could not download {filename} from remote sources. Falling back to system fonts.")
-    return False
-
-def ensure_essential_fonts():
-    """
-    Ensures essential fonts (Montserrat, Poppins, Inter, Oswald, Roboto) exist in custom fonts directory or system fonts.
-    """
-    print("Verifying essential fonts (Montserrat, Poppins, Inter, Oswald, Roboto)...")
-    
-    essential_fonts_urls = {
-        "Montserrat-Bold.ttf": [
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat-Bold.ttf",
-            "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf"
-        ],
-        "Poppins-Bold.ttf": [
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Bold.ttf",
-            "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf"
-        ],
-        "Inter-Bold.ttf": [
-            "https://raw.githubusercontent.com/rsms/inter/master/docs/font-files/Inter-Bold.otf",
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/Inter-Bold.ttf"
-        ],
-        "Oswald-Bold.ttf": [
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/oswald/static/Oswald-Bold.ttf",
-            "https://github.com/google/fonts/raw/main/ofl/oswald/static/Oswald-Bold.ttf"
-        ],
-        "Roboto-Bold.ttf": [
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/roboto/static/Roboto-Bold.ttf",
-            "https://github.com/google/fonts/raw/main/ofl/roboto/static/Roboto-Bold.ttf"
-        ]
-    }
-    
-    for filename, urls in essential_fonts_urls.items():
-        font_path = CUSTOM_FONTS_DIR / filename
-        if not font_path.exists():
-            download_font_with_fallback(filename, urls, font_path)
-
-    # Register all system & custom fonts into database
-    fonts = scan_all_available_fonts()
-    print(f"Registered {len(fonts)} font families in Subtitle Studio font database.")
+    time.sleep(0.8)
 
 def get_colab_proxy_url():
     """

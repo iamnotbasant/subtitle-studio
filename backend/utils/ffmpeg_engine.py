@@ -8,7 +8,7 @@ from pathlib import Path
 from config import OUTPUT_DIR, TEMP_DIR, CUSTOM_FONTS_DIR, SYSTEM_FONTS_DIR, update_render_progress, reset_render_progress
 
 def escape_ffmpeg_filter_path(path_input: str or Path) -> str:
-    """
+    r"""
     Escapes file path string for FFmpeg video filter parameter (-vf subtitles='...').
     Converts backslashes to forward slashes, escapes colons (C:\ -> C\:) and special characters.
     """
@@ -167,32 +167,31 @@ def render_ass_video(video_path: str or Path, ass_path: str or Path, output_path
     clean_video_path = str(Path(video_path).resolve())
     escaped_ass = escape_ffmpeg_filter_path(ass_path)
     escaped_custom_fonts = escape_ffmpeg_filter_path(CUSTOM_FONTS_DIR)
-    escaped_sys_fonts = escape_ffmpeg_filter_path(SYSTEM_FONTS_DIR)
 
     stages = [
         {
-            "name": "Stage 1: GPU NVENC + Custom Fonts Dir + Copy Audio",
+            "name": "Stage 1: GPU NVENC + Custom Fonts + Direct Stream Copy Audio",
             "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
         },
         {
-            "name": "Stage 2: GPU NVENC + System Fonts Dir + Copy Audio",
-            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_sys_fonts}'", "-c:a", "copy"]
+            "name": "Stage 2: GPU NVENC + Custom Fonts + AAC Audio Re-encode",
+            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
         },
         {
-            "name": "Stage 3: CPU libx264 Ultrafast + Custom Fonts Dir + Copy Audio",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
+            "name": "Stage 3: CPU libx264 Ultrafast + Custom Fonts + Direct Stream Copy Audio",
+            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
         },
         {
-            "name": "Stage 4: CPU libx264 Ultrafast + System Fonts Dir + Copy Audio",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_sys_fonts}'", "-c:a", "copy"]
+            "name": "Stage 4: CPU libx264 Ultrafast + Custom Fonts + AAC Audio Re-encode",
+            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
         },
         {
-            "name": "Stage 5: CPU libx264 Ultrafast + Custom Fonts Dir + AAC Re-encode",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+            "name": "Stage 5: CPU libx264 Veryfast + Custom Fonts + Safe Pixel Format",
+            "args": ["-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
         },
         {
-            "name": "Stage 6: CPU libx264 Ultrafast + System Fonts Dir + AAC Re-encode",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_sys_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+            "name": "Stage 6: CPU libx264 High Compatibility Baseline",
+            "args": ["-c:v", "libx264", "-preset", "fast", "-profile:v", "baseline", "-level", "3.0", "-pix_fmt", "yuv420p", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "128k"]
         }
     ]
 
@@ -217,36 +216,38 @@ def render_ass_video(video_path: str or Path, ass_path: str or Path, output_path
             "-i", clean_video_path
         ] + stage["args"] + [str(output_path.resolve())]
 
+        log_file_path = TEMP_DIR / "ffmpeg_render.log"
         try:
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            
-            while process.poll() is None:
-                time.sleep(0.3)
-                if progress_file.exists():
-                    try:
-                        with open(progress_file, "r") as pf:
-                            content = pf.read()
-                        
-                        out_time_ms = 0
-                        speed = "1x"
-                        for line in content.splitlines():
-                            if line.startswith("out_time_ms="):
-                                val = line.split("=")[1].strip()
-                                if val.isdigit():
-                                    out_time_ms = int(val)
-                            elif line.startswith("speed="):
-                                speed = line.split("=")[1].strip()
-                        
-                        current_secs = out_time_ms / 1_000_000.0
-                        if duration > 0:
-                            pct = min(99.9, (current_secs / duration) * 100.0)
-                            update_render_progress(
-                                percent=pct,
-                                speed=speed,
-                                status=f"Rendering: {pct:.1f}% ({stage['name']})"
-                            )
-                    except Exception:
-                        pass
+            with open(log_file_path, "w", encoding="utf-8", errors="ignore") as log_file:
+                process = subprocess.Popen(cmd, stdout=log_file, stderr=log_file, text=True)
+                
+                while process.poll() is None:
+                    time.sleep(0.2)
+                    if progress_file.exists():
+                        try:
+                            with open(progress_file, "r") as pf:
+                                content = pf.read()
+                            
+                            out_time_ms = 0
+                            speed = "1x"
+                            for line in content.splitlines():
+                                if line.startswith("out_time_ms="):
+                                    val = line.split("=")[1].strip()
+                                    if val.isdigit():
+                                        out_time_ms = int(val)
+                                elif line.startswith("speed="):
+                                    speed = line.split("=")[1].strip()
+                            
+                            current_secs = out_time_ms / 1_000_000.0
+                            if duration > 0:
+                                pct = min(99.9, (current_secs / duration) * 100.0)
+                                update_render_progress(
+                                    percent=pct,
+                                    speed=speed,
+                                    status=f"Rendering: {pct:.1f}% ({stage['name']})"
+                                )
+                        except Exception:
+                            pass
 
             if process.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
                 update_render_progress(

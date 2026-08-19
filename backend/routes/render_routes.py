@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from config import TEMP_DIR, OUTPUT_DIR, CUSTOM_FONTS_DIR, get_render_progress, reset_render_progress
+from backend.utils.font_parser import resolve_ass_font_name
 from backend.utils.ffmpeg_engine import (
     get_video_info,
     get_auto_versioned_path,
@@ -125,6 +126,9 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
     is_bold = 1 if (style.bold or style.fontStyle.lower() in ("bold", "black")) else 0
     is_italic = 1 if (style.italic or style.fontStyle.lower() == "italic") else 0
 
+    # Resolve exact internal font family / postscript name for libass & custom fonts
+    ass_font_name = resolve_ass_font_name(style.fontFamily)
+
     # Force Alignment 5 (Middle-Center anchor) for absolute \pos(abs_x, abs_y) coordinate positioning
     ass_alignment = 5
 
@@ -138,7 +142,7 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: Default,{style.fontFamily},{ass_font_size},{primary_ass},&H00000000,{stroke_ass},{bg_ass},{is_bold},{is_italic},{1 if style.underline else 0},{1 if style.strikethrough else 0},100,100,{style.tracking},0,{border_style},{outline_val},{shadow_val},{ass_alignment},20,20,40,1",
+        f"Style: Default,{ass_font_name},{ass_font_size},{primary_ass},&H00000000,{stroke_ass},{bg_ass},{is_bold},{is_italic},{1 if style.underline else 0},{1 if style.strikethrough else 0},100,100,{style.tracking},0,{border_style},{outline_val},{shadow_val},{ass_alignment},20,20,40,1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"

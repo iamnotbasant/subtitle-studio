@@ -559,29 +559,41 @@ function initAppListeners() {
                     const data = await res.json();
                     if (res.ok && data.font_metadata) {
                         const family = data.font_metadata.family;
+                        const fileName = data.font_metadata.file_name;
                         logExec(`Custom font '${family}' registered & parsed successfully!`, "success");
 
                         // Dynamically inject @font-face rule into document head so browser canvas loads custom font
-                        const fontStyleRule = document.createElement('style');
-                        fontStyleRule.textContent = `
+                        const dynamicStyleTag = document.getElementById('dynamicCustomFontsStyle') || document.head.appendChild(document.createElement('style'));
+                        dynamicStyleTag.id = 'dynamicCustomFontsStyle';
+                        dynamicStyleTag.textContent += `
                             @font-face {
                                 font-family: '${family}';
-                                src: url('/api/custom_fonts/${encodeURIComponent(data.font_metadata.file_name)}');
+                                src: url('/api/custom_fonts/${encodeURIComponent(fileName)}');
+                                font-display: swap;
                             }
                         `;
-                        document.head.appendChild(fontStyleRule);
 
                         const fontSelect = document.getElementById('fontFamilySelect');
+                        const customOptGroup = document.getElementById('customFontsOptGroup');
                         if (fontSelect) {
-                            const opt = document.createElement('option');
-                            opt.value = family;
-                            opt.textContent = `⭐ ${family} (Custom)`;
-                            fontSelect.appendChild(opt);
+                            let existingOpt = Array.from(fontSelect.options).find(o => o.value.toLowerCase() === family.toLowerCase());
+                            if (!existingOpt) {
+                                const opt = document.createElement('option');
+                                opt.value = family;
+                                opt.textContent = `⭐ ${family} (Custom)`;
+                                if (customOptGroup) {
+                                    customOptGroup.style.display = 'block';
+                                    customOptGroup.appendChild(opt);
+                                } else {
+                                    fontSelect.appendChild(opt);
+                                }
+                            }
                             fontSelect.value = family;
                         }
 
                         styleState.fontFamily = family;
                         if (typeof applyStyling === 'function') applyStyling();
+                        logExec(`Applied custom font '${family}' across all subtitles!`, "success");
                     } else {
                         logExec(`Font upload error: ${data.detail || 'Failed to register font'}`, "error");
                     }
@@ -626,6 +638,69 @@ function initAppListeners() {
     renderCaptionsList();
     initOnScreenEditing();
     initHotkeys();
+    loadAvailableFonts();
+}
+
+async function loadAvailableFonts() {
+    try {
+        const res = await fetch('/api/list_fonts');
+        const data = await res.json();
+        if (!res.ok || !data.fonts) return;
+
+        let dynamicStyleTag = document.getElementById('dynamicCustomFontsStyle');
+        if (!dynamicStyleTag) {
+            dynamicStyleTag = document.createElement('style');
+            dynamicStyleTag.id = 'dynamicCustomFontsStyle';
+            document.head.appendChild(dynamicStyleTag);
+        }
+
+        const customOptGroup = document.getElementById('customFontsOptGroup');
+        const fontSelect = document.getElementById('fontFamilySelect');
+
+        let cssRules = [];
+        const existingValues = new Set();
+        if (fontSelect) {
+            Array.from(fontSelect.options).forEach(opt => existingValues.add(opt.value.toLowerCase()));
+        }
+
+        data.fonts.forEach(f => {
+            const family = f.family;
+            const fileName = f.file_name;
+            const isCustom = f.is_custom;
+
+            if (fileName) {
+                cssRules.push(`
+                    @font-face {
+                        font-family: '${family}';
+                        src: url('/api/custom_fonts/${encodeURIComponent(fileName)}');
+                        font-display: swap;
+                    }
+                `);
+            }
+
+            if (isCustom && customOptGroup && !existingValues.has(family.toLowerCase())) {
+                const opt = document.createElement('option');
+                opt.value = family;
+                opt.textContent = `⭐ ${family} (Custom)`;
+                customOptGroup.appendChild(opt);
+                existingValues.add(family.toLowerCase());
+            }
+        });
+
+        dynamicStyleTag.textContent = cssRules.join('\n');
+
+        if (customOptGroup) {
+            customOptGroup.style.display = customOptGroup.children.length > 0 ? 'block' : 'none';
+        }
+
+        if (fontSelect && styleState.fontFamily) {
+            fontSelect.value = styleState.fontFamily;
+        }
+
+        logExec(`Loaded ${data.fonts.length} fonts from Subtitle Studio font database.`, "info");
+    } catch (err) {
+        console.error("Font loading error:", err);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

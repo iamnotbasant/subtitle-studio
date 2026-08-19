@@ -8,7 +8,10 @@
     <!-- Optimized Preconnect & Non-blocking Async Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@400;600;700;800&display=swap" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter:wght@300;400;600;700;800;900&family=Montserrat:wght@400;600;700;800;900&family=Oswald:wght@400;600;700&family=Poppins:wght@400;600;700;800;900&family=Questrial&family=Roboto:wght@400;500;700;900&display=swap">
+    
+    <!-- Dynamic Custom Fonts Style Container -->
+    <style id="dynamicCustomFontsStyle"></style>
     
     <!-- Modular CSS Stylesheets -->
     <link rel="stylesheet" href="css/main.css">
@@ -218,13 +221,23 @@
                         <div class="pp-accordion-body" id="acc-text">
                             <div class="form-row">
                                 <select id="fontFamilySelect" class="pp-select">
-                                    <option value="Century Gothic" selected>Century Gothic</option>
-                                    <option value="Montserrat">Montserrat</option>
-                                    <option value="Poppins">Poppins</option>
-                                    <option value="Inter">Inter</option>
-                                    <option value="Oswald">Oswald</option>
-                                    <option value="Roboto">Roboto</option>
-                                    <option value="Arial">Arial</option>
+                                    <optgroup label="⭐ Custom Uploaded Fonts" id="customFontsOptGroup">
+                                        <!-- Injected dynamically by loadAvailableFonts -->
+                                    </optgroup>
+                                    <optgroup label="🔥 Popular Subtitle Fonts">
+                                        <option value="Poppins" selected>Poppins (Clean / Viral)</option>
+                                        <option value="Montserrat">Montserrat (Modern Heavy)</option>
+                                        <option value="Bebas Neue">Bebas Neue (Tall Bold)</option>
+                                        <option value="Anton">Anton (Ultra Impact)</option>
+                                        <option value="Inter">Inter (Sleek UI)</option>
+                                        <option value="Oswald">Oswald (Condensed)</option>
+                                        <option value="Roboto">Roboto (Crisp)</option>
+                                        <option value="Questrial">Questrial / Gothic</option>
+                                    </optgroup>
+                                    <optgroup label="🖥️ System Fonts">
+                                        <option value="Century Gothic">Century Gothic</option>
+                                        <option value="Arial">Arial</option>
+                                    </optgroup>
                                 </select>
                             </div>
 
