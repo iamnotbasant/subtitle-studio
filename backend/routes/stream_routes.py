@@ -104,26 +104,27 @@ def stream_video(video_path: str = Query(...)):
 @router.post("/download_drive_link")
 def download_drive_link(req: DownloadDriveRequest):
     """
-    Downloads video directly from Google Drive links/IDs using gdown.
+    Downloads video directly from Google Drive links/IDs using gdown with universal URL parsing.
     """
+    import re
     try:
         output_path = TEMP_DIR / req.output_filename
-        url = req.url_or_id
+        url = req.url_or_id.strip()
         
+        # Universal regex to extract Google Drive file ID (25+ alphanumeric/hyphen/underscore chars)
         if "drive.google.com" in url:
-            if "id=" in url:
-                file_id = url.split("id=")[1].split("&")[0]
-            elif "/d/" in url:
-                file_id = url.split("/d/")[1].split("/")[0]
+            match = re.search(r'[-\w]{25,}', url)
+            if match:
+                file_id = match.group(0)
+                gdown_target = f"https://drive.google.com/uc?id={file_id}"
             else:
-                file_id = url
-            gdown_target = f"https://drive.google.com/uc?id={file_id}"
+                gdown_target = url
         else:
             gdown_target = url
 
         res = gdown.download(gdown_target, str(output_path.resolve()), quiet=False, fuzzy=True)
         if not res or not output_path.exists():
-            raise Exception("Failed to download video from Google Drive link.")
+            raise Exception("Failed to download video from Google Drive link. Please ensure the link is set to 'Anyone with the link can view'.")
 
         info = get_video_info(str(output_path.resolve()))
         return {

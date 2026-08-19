@@ -79,12 +79,21 @@ function updateUndoRedoButtons() {
 }
 
 function parseSRTTime(timeStr) {
-    const parts = timeStr.trim().replace(',', '.').split(':');
-    if (parts.length < 3) return 0;
-    const hrs = parseFloat(parts[0]);
-    const mins = parseFloat(parts[1]);
-    const secs = parseFloat(parts[2]);
-    return (hrs * 3600) + (mins * 60) + secs;
+    if (!timeStr) return 0;
+    const clean = timeStr.trim().replace(',', '.');
+    const parts = clean.split(':');
+    if (parts.length === 3) {
+        const hrs = parseFloat(parts[0]) || 0;
+        const mins = parseFloat(parts[1]) || 0;
+        const secs = parseFloat(parts[2]) || 0;
+        return (hrs * 3600) + (mins * 60) + secs;
+    } else if (parts.length === 2) {
+        const mins = parseFloat(parts[0]) || 0;
+        const secs = parseFloat(parts[1]) || 0;
+        return (mins * 60) + secs;
+    } else {
+        return parseFloat(clean) || 0;
+    }
 }
 
 function formatSRTTime(seconds) {
@@ -115,8 +124,9 @@ function parseSRT(srtText) {
             if (lines[timeLineIdx] && lines[timeLineIdx].includes('-->')) {
                 const [startStr, endStr] = lines[timeLineIdx].split('-->');
                 const text = lines.slice(timeLineIdx + 1).join('\n').trim();
+                const randSuffix = Math.random().toString(36).substring(2, 7);
                 parsed.push({
-                    id: `cap_${Date.now()}_${idx}`,
+                    id: `cap_${Date.now()}_${idx}_${randSuffix}`,
                     start: parseSRTTime(startStr),
                     end: parseSRTTime(endStr),
                     text: text

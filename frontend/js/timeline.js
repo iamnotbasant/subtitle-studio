@@ -160,11 +160,14 @@ function initTimelineEvents() {
         }, { passive: false });
     }
 
+    let timelineMoveRaf = false;
+
     if (ruler) {
         ruler.addEventListener('click', (e) => {
             const rect = ruler.getBoundingClientRect();
-            const clickPx = e.clientX - rect.left + ruler.scrollLeft;
-            const targetSec = pixelsToSeconds(clickPx);
+            const scrollOffset = trackArea ? trackArea.scrollLeft : 0;
+            const clickPx = e.clientX - rect.left + scrollOffset;
+            const targetSec = Math.max(0, pixelsToSeconds(clickPx));
             if (video) video.currentTime = targetSec;
             updatePlayheadPosition();
         });
@@ -183,16 +186,21 @@ function initTimelineEvents() {
             const dur = dragOriginalEnd - dragOriginalStart;
             capItem.start = Math.max(0, parseFloat((dragOriginalStart + deltaSec).toFixed(2)));
             capItem.end = parseFloat((capItem.start + dur).toFixed(2));
-            renderTimelineTrack();
-            renderCaptionsList();
         } else if (isTrimmingClip) {
             if (currentTrimEdge === 'left') {
                 capItem.start = Math.min(capItem.end - 0.2, Math.max(0, parseFloat((dragOriginalStart + deltaSec).toFixed(2))));
             } else if (currentTrimEdge === 'right') {
                 capItem.end = Math.max(capItem.start + 0.2, parseFloat((dragOriginalEnd + deltaSec).toFixed(2)));
             }
-            renderTimelineTrack();
-            renderCaptionsList();
+        }
+
+        if (!timelineMoveRaf) {
+            timelineMoveRaf = true;
+            requestAnimationFrame(() => {
+                renderTimelineTrack();
+                renderCaptionsList();
+                timelineMoveRaf = false;
+            });
         }
     });
 

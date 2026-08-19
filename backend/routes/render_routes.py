@@ -164,9 +164,12 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
     abs_y = round((play_res_y / 2.0) + (pp_pos_y * (play_res_y / ref_y)))
 
     for cap in captions:
-        start_t = format_ass_time(cap["start"])
-        end_t = format_ass_time(cap["end"])
-        text = cap["text"]
+        start_sec = max(0.0, float(cap.get("start", 0.0)))
+        end_sec = max(start_sec + 0.05, float(cap.get("end", start_sec + 1.0)))
+        start_t = format_ass_time(start_sec)
+        end_t = format_ass_time(end_sec)
+        
+        text = str(cap.get("text", "")).replace("\r\n", "\\N").replace("\n", "\\N")
 
         if style.allCaps:
             text = text.upper()
