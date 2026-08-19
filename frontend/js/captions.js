@@ -293,8 +293,24 @@ function renderCaptionsList() {
         return item.text.toLowerCase().includes(searchQuery);
     });
 
+    if (captionsData.length === 0) {
+        container.innerHTML = `
+            <div class="captions-empty-state">
+                <div class="empty-icon">📝</div>
+                <div class="empty-title">No Subtitles Yet</div>
+                <div class="empty-desc">Auto-transcribe speech with AI, import an .SRT file, or create custom captions.</div>
+                <div class="empty-actions">
+                    <button onclick="document.getElementById('btnAiCaptions').click()" class="btn-sm btn-glow-purple">⚡ AI Transcribe</button>
+                    <button onclick="document.getElementById('btnImportSrt').click()" class="btn-sm">📂 Import .SRT</button>
+                    <button onclick="addNewCaptionLine()" class="btn-sm btn-accent">+ Add Caption</button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
     if (visibleItems.length === 0) {
-        container.innerHTML = '<div class="console-line warn" style="padding:10px;text-align:center;">No captions match your search.</div>';
+        container.innerHTML = '<div class="console-line warn" style="padding:16px;text-align:center;">🔍 No captions match your search.</div>';
         return;
     }
 
