@@ -1,7 +1,7 @@
 /* Minimalist Dark Timeline Stylesheet */
 
 .timeline-container {
-    height: 125px;
+    height: 135px;
     background: #0d0d10;
     border-top: 1px solid var(--border-color);
     display: flex;
@@ -65,6 +65,34 @@
     overflow-x: auto;
     overflow-y: hidden;
     transform: translate3d(0, 0, 0);
+    scroll-behavior: smooth;
+}
+
+/* ENHANCED TIMELINE SCROLLBAR (LARGER & SMOOTH) */
+.timeline-track-area::-webkit-scrollbar {
+    height: 12px;
+}
+
+.timeline-track-area::-webkit-scrollbar-track {
+    background: #101014;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.timeline-track-area::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.28);
+    border-radius: 6px;
+    border: 2px solid #101014;
+    cursor: grab;
+    transition: background var(--transition-fast);
+}
+
+.timeline-track-area::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.55);
+}
+
+.timeline-track-area::-webkit-scrollbar-thumb:active {
+    background: #ffffff;
+    cursor: grabbing;
 }
 
 /* TIME RULER */

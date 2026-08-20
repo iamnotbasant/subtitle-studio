@@ -288,7 +288,12 @@ async function triggerExport() {
 }
 
 function startProgressPolling() {
-    if (renderPollInterval) clearInterval(renderPollInterval);
+    if (renderPollInterval) {
+        clearInterval(renderPollInterval);
+        renderPollInterval = null;
+    }
+
+    let isHandledCompletion = false;
 
     renderPollInterval = setInterval(async () => {
         try {
@@ -306,15 +311,25 @@ function startProgressPolling() {
             if (speedText) speedText.textContent = data.speed;
 
             if (data.percent >= 100 && data.stage === 'Done') {
-                clearInterval(renderPollInterval);
+                if (isHandledCompletion) return;
+                isHandledCompletion = true;
+
+                if (renderPollInterval) {
+                    clearInterval(renderPollInterval);
+                    renderPollInterval = null;
+                }
+
                 logExec("Video rendering & subtitle burn completed successfully!", "success");
                 soundEngine.success();
                 setTimeout(() => {
                     showRenderModal(false);
                     openExportsGalleryModal();
-                }, 1000);
+                }, 800);
             } else if (data.stage === 'Failed') {
-                clearInterval(renderPollInterval);
+                if (renderPollInterval) {
+                    clearInterval(renderPollInterval);
+                    renderPollInterval = null;
+                }
                 logExec(`Render failed: ${data.error}`, "error");
             }
         } catch (err) {
@@ -331,11 +346,13 @@ function showRenderModal(show) {
 // ==========================================
 // 🎬 RENDERED VIDEOS GALLERY MANAGER
 // ==========================================
-function openExportsGalleryModal() {
+let currentGalleryActiveFilename = null;
+
+function openExportsGalleryModal(targetFilename = null) {
     const modal = document.getElementById('exportsGalleryModal');
     if (modal) {
         modal.style.display = 'flex';
-        loadExportsGallery();
+        loadExportsGallery(targetFilename);
     }
 }
 
@@ -346,14 +363,56 @@ function closeExportsGalleryModal() {
         player.pause();
         player.removeAttribute('src');
         player.load();
-        player.oncanplay = null;
-        player.onerror = null;
     }
+    currentGalleryActiveFilename = null;
     if (modal) modal.style.display = 'none';
 }
 
-async function loadExportsGallery() {
+function setGalleryPreviewVideo(item, shouldPlay = false) {
+    const player = document.getElementById('galleryVideoPlayer');
+    const placeholder = document.getElementById('galleryPlayerPlaceholder');
+    if (!player || !item) return;
+
+    currentGalleryActiveFilename = item.filename;
+
+    // Update active highlight across gallery cards
+    const cards = document.querySelectorAll('.gallery-card');
+    cards.forEach(c => {
+        if (c.dataset.filename === item.filename) {
+            c.classList.add('active-preview');
+        } else {
+            c.classList.remove('active-preview');
+        }
+    });
+
+    if (placeholder) placeholder.style.display = 'none';
+    player.style.display = 'block';
+
+    // Strict No-Autoplay: Stop playback, set source with cache-busting, preload metadata
+    player.autoplay = false;
+    player.pause();
+    const cleanUrl = `/api/exports/${encodeURIComponent(item.filename)}?t=${item.created_at || Date.now()}`;
+    
+    if (player.src !== cleanUrl && !player.src.endsWith(encodeURIComponent(item.filename))) {
+        player.src = cleanUrl;
+        player.currentTime = 0;
+        player.load();
+    }
+
+    if (shouldPlay) {
+        player.play().catch(err => {
+            logExec(`Gallery playback notification: ${err.message}`, "info");
+        });
+    }
+
+    logExec(`Loaded exported video into preview: ${item.filename}`, "info");
+}
+
+async function loadExportsGallery(targetFilename = null) {
     const galleryList = document.getElementById('galleryList');
+    const countBadge = document.getElementById('galleryCountBadge');
+    const player = document.getElementById('galleryVideoPlayer');
+    const placeholder = document.getElementById('galleryPlayerPlaceholder');
     if (!galleryList) return;
 
     galleryList.innerHTML = '<div class="console-line info">Loading rendered exports...</div>';
@@ -361,15 +420,30 @@ async function loadExportsGallery() {
         const res = await fetch('/api/list_exports');
         const data = await res.json();
 
+        if (countBadge) {
+            countBadge.textContent = data.exports ? data.exports.length : 0;
+        }
+
         if (!data.exports || data.exports.length === 0) {
             galleryList.innerHTML = '<div class="console-line warn">No rendered video exports found yet.</div>';
+            if (placeholder) placeholder.style.display = 'flex';
+            if (player) {
+                player.pause();
+                player.removeAttribute('src');
+                player.load();
+            }
             return;
         }
 
         galleryList.innerHTML = '';
+
+        // Auto-select latest export (first item) or specific target
+        const activeItem = (targetFilename ? data.exports.find(e => e.filename === targetFilename) : null) || data.exports[0];
+
         data.exports.forEach(item => {
             const card = document.createElement('div');
-            card.className = 'gallery-card';
+            card.className = `gallery-card ${item.filename === activeItem.filename ? 'active-preview' : ''}`;
+            card.dataset.filename = item.filename;
 
             const artifactsText = [
                 'MP4',
@@ -383,17 +457,17 @@ async function loadExportsGallery() {
                     <div class="gallery-card-sub">${item.size_mb} MB • ${item.duration}s • [${artifactsText}]</div>
                 </div>
                 <div class="gallery-card-actions">
-                    <button class="btn-xs play-gallery-btn" data-filename="${item.filename}">
+                    <button class="btn-xs play-gallery-btn" data-filename="${item.filename}" title="Load video into preview player">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                        Play in Dashboard
+                        Preview
                     </button>
-                    <a href="/api/exports/${encodeURIComponent(item.filename)}" download class="btn-xs">
+                    <a href="/api/exports/${encodeURIComponent(item.filename)}" download class="btn-xs" title="Download MP4">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                         Download
                     </a>
-                    <button class="btn-xs copy-path-btn" data-path="${item.path}">
+                    <button class="btn-xs copy-path-btn" data-path="${item.path}" title="Copy absolute file path">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                        Copy Path
+                        Copy
                     </button>
                 </div>
             `;
@@ -401,30 +475,29 @@ async function loadExportsGallery() {
             const playBtn = card.querySelector('.play-gallery-btn');
             const copyBtn = card.querySelector('.copy-path-btn');
 
-            playBtn.addEventListener('click', () => {
-                const player = document.getElementById('galleryVideoPlayer');
-                if (player) {
-                    player.src = `/api/exports/${encodeURIComponent(item.filename)}`;
-                    player.load();
-                    player.oncanplay = () => {
-                        player.play().catch(err => {
-                            logExec(`Gallery playback error: ${err.message}`, "warn");
-                        });
-                    };
-                    player.onerror = () => {
-                        logExec(`Failed to load exported video: ${item.filename}`, "error");
-                    };
-                    logExec(`Loading rendered video in gallery player: ${item.filename}`, "info");
-                }
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.copy-path-btn') || e.target.closest('a[download]')) return;
+                setGalleryPreviewVideo(item, false);
             });
 
-            copyBtn.addEventListener('click', () => {
+            playBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setGalleryPreviewVideo(item, false);
+            });
+
+            copyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 navigator.clipboard.writeText(item.path);
                 logExec(`Copied file path to clipboard: ${item.path}`, "success");
             });
 
             galleryList.appendChild(card);
         });
+
+        // Automatically load latest video into player paused at frame 0 (no autoplay)
+        if (activeItem) {
+            setGalleryPreviewVideo(activeItem, false);
+        }
 
     } catch (err) {
         galleryList.innerHTML = `<div class="console-line error">Failed to load exports: ${err}</div>`;

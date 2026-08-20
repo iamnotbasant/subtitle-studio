@@ -363,6 +363,6 @@ def stream_export_file(filename: str):
         media_type="video/mp4",
         headers={
             "Accept-Ranges": "bytes",
-            "Cache-Control": "public, max-age=3600"
+            "Cache-Control": "no-cache, no-store, must-revalidate"
         }
     )

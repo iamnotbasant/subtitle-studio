@@ -115,6 +115,8 @@ function renderTimelineTrack() {
     updatePlayheadPosition();
 }
 
+let lastUserTimelineInteractionTime = 0;
+
 function updatePlayheadPosition() {
     const { playhead, timecode, video } = getPlayheadNodes();
     if (!video || !playhead) return;
@@ -124,9 +126,13 @@ function updatePlayheadPosition() {
 
     playhead.style.transform = `translate3d(${leftPx}px, 0, 0)`;
 
-    // Auto-scroll timeline track horizontally to follow the playhead
+    // Auto-scroll timeline track horizontally to follow the playhead ONLY when video is actively playing
+    // and user has not recently interacted with the scrollbar or timeline track (< 1500ms)
     const trackArea = document.getElementById('timelineTrackArea');
-    if (trackArea && !isScrubbingTimeline && !isDraggingClip && !isTrimmingClip) {
+    const now = Date.now();
+    const isUserActive = isScrubbingTimeline || isDraggingClip || isTrimmingClip || (now - lastUserTimelineInteractionTime < 1500);
+
+    if (trackArea && video && !video.paused && !isUserActive) {
         const scrollLeft = trackArea.scrollLeft;
         const viewWidth = trackArea.clientWidth;
         if (leftPx > scrollLeft + viewWidth - 50 || leftPx < scrollLeft) {
@@ -176,9 +182,15 @@ function initTimelineEvents() {
         });
     }
 
-    // Ctrl + Mouse Wheel Smooth Zoom Listener
     if (trackArea) {
+        // Track user scrolling to prevent glitching / fighting with auto-scroll
+        trackArea.addEventListener('scroll', () => {
+            lastUserTimelineInteractionTime = Date.now();
+        }, { passive: true });
+
+        // Wheel event: Ctrl/Cmd = Zoom, Normal vertical/horizontal wheel = Smooth Horizontal Scroll
         trackArea.addEventListener('wheel', (e) => {
+            lastUserTimelineInteractionTime = Date.now();
             if (e.ctrlKey || e.metaKey) {
                 e.preventDefault();
                 const delta = e.deltaY > 0 ? -15 : 15;
@@ -186,6 +198,11 @@ function initTimelineEvents() {
                 if (zoomInput) zoomInput.value = zoomScale;
                 if (zoomVal) zoomVal.textContent = `${zoomScale}%`;
                 renderTimelineTrack();
+            } else {
+                // Smooth horizontal scrolling on mouse wheel
+                e.preventDefault();
+                const scrollDelta = (Math.abs(e.deltaX) > Math.abs(e.deltaY)) ? e.deltaX : e.deltaY * 1.2;
+                trackArea.scrollLeft += scrollDelta;
             }
         }, { passive: false });
 
@@ -194,7 +211,14 @@ function initTimelineEvents() {
             if (e.target.closest('.timeline-clip') || e.target.closest('.trim-handle')) {
                 return; // Clip dragging handles itself
             }
+            // Check if clicking in the bottom scrollbar area (bottom 16px)
+            const rect = trackArea.getBoundingClientRect();
+            if (e.clientY > rect.bottom - 16) {
+                lastUserTimelineInteractionTime = Date.now();
+                return; // User is clicking or dragging the scrollbar! Do not jump playhead.
+            }
             isScrubbingTimeline = true;
+            lastUserTimelineInteractionTime = Date.now();
             seekTimelineFromMouseEvent(e);
         });
     }
@@ -202,6 +226,7 @@ function initTimelineEvents() {
     if (ruler) {
         ruler.addEventListener('mousedown', (e) => {
             isScrubbingTimeline = true;
+            lastUserTimelineInteractionTime = Date.now();
             seekTimelineFromMouseEvent(e);
         });
     }
