@@ -570,6 +570,39 @@ function toggleFullscreen() {
 }
 
 // ==========================================
+// 📺 LIVE SUBTITLE & ACTIVE CAPTION SYNC
+// ==========================================
+function requestUpdateLiveSubtitleOverlay() {
+    const video = document.getElementById('mainVideoPlayer');
+    const textBox = document.getElementById('subtitleTextBox');
+    const activeSubInput = document.getElementById('activeSubTextInput');
+    if (!video || !textBox) return;
+
+    const currTime = video.currentTime || 0;
+    const activeCap = (typeof getActiveCaptionForTime === 'function') ? getActiveCaptionForTime(currTime) : null;
+
+    if (activeCap) {
+        if (textBox.contentEditable !== "true") {
+            if (textBox.innerText !== activeCap.text) {
+                textBox.innerText = activeCap.text;
+            }
+            textBox.style.display = 'block';
+        }
+        if (activeSubInput && document.activeElement !== activeSubInput && activeSubInput.value !== activeCap.text) {
+            activeSubInput.value = activeCap.text;
+        }
+        if (typeof setActiveCaption === 'function') {
+            setActiveCaption(activeCap.id);
+        }
+    } else {
+        if (textBox.contentEditable !== "true") {
+            textBox.innerText = '';
+            textBox.style.display = 'none';
+        }
+    }
+}
+
+// ==========================================
 // 🖱️ DRAGGABLE & EDITABLE ON-SCREEN SUBTITLE
 // ==========================================
 function initOnScreenEditing() {

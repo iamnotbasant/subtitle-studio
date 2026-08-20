@@ -1,10 +1,12 @@
 /**
- * Hardware-Accelerated Interactive Timeline Engine (Smooth Zoom, Draggable Handles & Cut Tools) v8.1.0
+ * Hardware-Accelerated Interactive Timeline Engine v8.1.0
+ * Smooth Zoom, Interactive Playhead Scrubbing, Clip Dragging, Trimming & Real-time Auto-Scrolling
  */
 
 let zoomScale = 100;
 let isDraggingClip = false;
 let isTrimmingClip = false;
+let isScrubbingTimeline = false;
 let currentDraggedClipId = null;
 let currentTrimEdge = null;
 let dragStartX = 0;
@@ -16,7 +18,7 @@ let cachedTimecodeNode = null;
 let cachedVideoNode = null;
 
 function secondsToPixels(sec) {
-    // Smooth linear mapping: 100% zoom = 40px per second
+    // 100% zoom = 40px per second
     const pps = (zoomScale / 100.0) * 40.0;
     return sec * pps;
 }
@@ -122,6 +124,16 @@ function updatePlayheadPosition() {
 
     playhead.style.transform = `translate3d(${leftPx}px, 0, 0)`;
 
+    // Auto-scroll timeline track horizontally to follow the playhead
+    const trackArea = document.getElementById('timelineTrackArea');
+    if (trackArea && !isScrubbingTimeline && !isDraggingClip && !isTrimmingClip) {
+        const scrollLeft = trackArea.scrollLeft;
+        const viewWidth = trackArea.clientWidth;
+        if (leftPx > scrollLeft + viewWidth - 50 || leftPx < scrollLeft) {
+            trackArea.scrollLeft = Math.max(0, leftPx - (viewWidth / 3));
+        }
+    }
+
     if (timecode) {
         const hrs = String(Math.floor(currTime / 3600)).padStart(2, '0');
         const mins = String(Math.floor((currTime % 3600) / 60)).padStart(2, '0');
@@ -131,11 +143,29 @@ function updatePlayheadPosition() {
     }
 }
 
+function seekTimelineFromMouseEvent(e) {
+    const trackArea = document.getElementById('timelineTrackArea');
+    const { video } = getPlayheadNodes();
+    if (!trackArea || !video) return;
+
+    const rect = trackArea.getBoundingClientRect();
+    const clickX = e.clientX - rect.left + trackArea.scrollLeft;
+    const targetSec = Math.max(0, Math.min(video.duration || 60, pixelsToSeconds(clickX)));
+
+    video.currentTime = targetSec;
+    updatePlayheadPosition();
+
+    if (typeof updatePlayerScrubber === 'function') updatePlayerScrubber();
+    if (typeof updateTimeReadouts === 'function') updateTimeReadouts();
+    if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
+}
+
 function initTimelineEvents() {
     const zoomInput = document.getElementById('timelineZoom');
     const zoomVal = document.getElementById('zoomVal');
     const ruler = document.getElementById('timeRuler');
     const trackArea = document.getElementById('timelineTrackArea');
+    const subtitleTrack = document.getElementById('subtitleTrack');
     const { video } = getPlayheadNodes();
 
     if (zoomInput) {
@@ -158,22 +188,34 @@ function initTimelineEvents() {
                 renderTimelineTrack();
             }
         }, { passive: false });
+
+        // Direct Click & Drag to Move Playhead anywhere on the timeline track background
+        trackArea.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.timeline-clip') || e.target.closest('.trim-handle')) {
+                return; // Clip dragging handles itself
+            }
+            isScrubbingTimeline = true;
+            seekTimelineFromMouseEvent(e);
+        });
+    }
+
+    if (ruler) {
+        ruler.addEventListener('mousedown', (e) => {
+            isScrubbingTimeline = true;
+            seekTimelineFromMouseEvent(e);
+        });
     }
 
     let timelineMoveRaf = false;
 
-    if (ruler) {
-        ruler.addEventListener('click', (e) => {
-            const rect = ruler.getBoundingClientRect();
-            const scrollOffset = trackArea ? trackArea.scrollLeft : 0;
-            const clickPx = e.clientX - rect.left + scrollOffset;
-            const targetSec = Math.max(0, pixelsToSeconds(clickPx));
-            if (video) video.currentTime = targetSec;
-            updatePlayheadPosition();
-        });
-    }
-
     window.addEventListener('mousemove', (e) => {
+        // 1. Scrubbing Playhead
+        if (isScrubbingTimeline) {
+            seekTimelineFromMouseEvent(e);
+            return;
+        }
+
+        // 2. Dragging or Trimming Subtitle Clip
         if (!currentDraggedClipId) return;
 
         const deltaPx = e.clientX - dragStartX;
@@ -205,6 +247,7 @@ function initTimelineEvents() {
     });
 
     window.addEventListener('mouseup', () => {
+        isScrubbingTimeline = false;
         if (isDraggingClip || isTrimmingClip) {
             isDraggingClip = false;
             isTrimmingClip = false;
