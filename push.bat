@@ -1,7 +1,7 @@
 @echo off
 echo Staging and pushing changes to GitHub...
 git add .
-git commit -m "v8.1.0 Master Release: Mathematical caption center alignment, master track style synchronization, and responsive canvas transform anchoring"
+git commit -m "Update Subtitle Studio Pro: Bento Dark UI, SVG icons, Premiere Pro Inspector, and video player fixes"
 git push origin main
 echo Done!
 pause
