@@ -7,6 +7,14 @@ import threading
 from pathlib import Path
 import uvicorn
 
+# Ensure UTF-8 output encoding on Windows consoles
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from config import APP_VERSION, IS_COLAB, CUSTOM_FONTS_DIR, BASE_DIR
 from backend.utils.font_parser import ensure_essential_fonts, scan_all_available_fonts
 
@@ -54,7 +62,6 @@ def get_colab_proxy_url():
             if not url_str.startswith("http"):
                 url_str = f"https://{url_str}"
 
-            # Sanitize trailing slashes to prevent '.devfrontend/index.html' malformed URLs
             clean_base_url = url_str.rstrip('/')
             return f"{clean_base_url}/frontend/index.html"
         except Exception as e:
@@ -69,13 +76,13 @@ def print_startup_banner():
     colab_link = get_colab_proxy_url()
     
     print("\n" + "="*75)
-    print(f"🎬 Premiere Properties Subtitle Studio (v{APP_VERSION})")
+    print(f"[*] Subtitle Studio Pro (v{APP_VERSION}) - Minimal Dark Edition")
     if colab_link:
-        print("🚀 Running inside Google Colab Environment!")
-        print(f"✨ PUBLIC COLAB STUDIO LINK: {colab_link}")
+        print("[!] Running inside Google Colab Environment")
+        print(f"[>] PUBLIC COLAB STUDIO LINK: {colab_link}")
     else:
-        print("🖥️  Running on Local Machine!")
-        print("✨ LOCAL STUDIO LINK: http://localhost:8000/frontend/index.html")
+        print("[!] Running on Local Machine")
+        print(" -> LOCAL STUDIO LINK: http://localhost:8000/frontend/index.html")
     print("="*75 + "\n")
 
 def run_uvicorn_server():
