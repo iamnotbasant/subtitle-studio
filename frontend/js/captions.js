@@ -296,13 +296,24 @@ function renderCaptionsList() {
     if (captionsData.length === 0) {
         container.innerHTML = `
             <div class="captions-empty-state">
-                <div class="empty-icon">📝</div>
+                <div class="empty-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="4" rx="3"/><path d="M6 9h12M6 13h7"/></svg>
+                </div>
                 <div class="empty-title">No Subtitles Yet</div>
                 <div class="empty-desc">Auto-transcribe speech with AI, import an .SRT file, or create custom captions.</div>
                 <div class="empty-actions">
-                    <button onclick="document.getElementById('btnAiCaptions').click()" class="btn-sm btn-glow-purple">⚡ AI Transcribe</button>
-                    <button onclick="document.getElementById('btnImportSrt').click()" class="btn-sm">📂 Import .SRT</button>
-                    <button onclick="addNewCaptionLine()" class="btn-sm btn-accent">+ Add Caption</button>
+                    <button onclick="document.getElementById('btnAiCaptions').click()" class="btn-sm btn-glow-purple">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        AI Transcribe
+                    </button>
+                    <button onclick="document.getElementById('btnImportSrt').click()" class="btn-sm">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" x2="12" y1="18" y2="12"/><line x1="9" x2="15" y1="15" y2="15"/></svg>
+                        Import .SRT
+                    </button>
+                    <button onclick="addNewCaptionLine()" class="btn-sm btn-accent">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                        Add Caption
+                    </button>
                 </div>
             </div>
         `;
@@ -310,7 +321,12 @@ function renderCaptionsList() {
     }
 
     if (visibleItems.length === 0) {
-        container.innerHTML = '<div class="console-line warn" style="padding:16px;text-align:center;">🔍 No captions match your search.</div>';
+        container.innerHTML = `
+            <div class="console-line warn" style="padding:16px;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
+                No captions match your search.
+            </div>
+        `;
         return;
     }
 
@@ -325,12 +341,16 @@ function renderCaptionsList() {
                 <span>#${index + 1}</span>
                 <div class="timestamp-inputs">
                     <input type="text" class="time-input start-time" value="${item.start.toFixed(2)}" data-id="${item.id}">
-                    <span>➔</span>
+                    <span style="color:var(--text-muted);font-size:10px;">➔</span>
                     <input type="text" class="time-input end-time" value="${item.end.toFixed(2)}" data-id="${item.id}">
                 </div>
                 <div class="card-actions-right">
-                    <button class="card-split-btn" data-id="${item.id}" title="Split / Cut Line">✂️</button>
-                    <button class="card-delete-btn" data-id="${item.id}" title="Delete Line">✖</button>
+                    <button class="card-split-btn" data-id="${item.id}" title="Split / Cut Line">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" x2="8.12" y1="4" y2="15.88"/><line x1="14.47" x2="20" y1="14.48" y2="20"/><line x1="8.12" x2="12" y1="8.12" y2="12"/></svg>
+                    </button>
+                    <button class="card-delete-btn" data-id="${item.id}" title="Delete Line">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+                    </button>
                 </div>
             </div>
             <textarea class="caption-text-area" data-id="${item.id}">${item.text}</textarea>

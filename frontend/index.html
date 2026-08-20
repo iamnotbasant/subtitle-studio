@@ -10,6 +10,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter:wght@300;400;600;700;800;900&family=Montserrat:wght@400;600;700;800;900&family=Oswald:wght@400;600;700&family=Poppins:wght@400;600;700;800;900&family=Questrial&family=Roboto:wght@400;500;700;900&display=swap">
     
+    <!-- Lucide Vector Icons Library -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
     <!-- Dynamic Custom Fonts Style Container -->
     <style id="dynamicCustomFontsStyle">
         @font-face {
@@ -38,7 +41,9 @@
         <!-- TOP NAVBAR -->
         <header class="top-navbar glass-panel">
             <div class="brand-title">
-                <div class="logo-icon"></div>
+                <div class="logo-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="4" rx="3"/><path d="M6 9h12M6 13h7"/></svg>
+                </div>
                 <h1>Subtitle Studio <span>Pro</span></h1>
                 <span class="version-badge" id="appVersionBadge">v8.1.0</span>
             </div>
@@ -48,14 +53,26 @@
                     <label for="videoPathInput">Video Path / URL:</label>
                     <input type="text" id="videoPathInput" placeholder="e.g. /content/my_video.mp4 or Drive Link">
                 </div>
-                <button id="btnLoadVideo" class="btn btn-secondary">Load Video</button>
-                <button id="btnDriveDownload" class="btn btn-outline">📥 Google Drive Link</button>
+                <button id="btnLoadVideo" class="btn btn-secondary">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18l15-9L5 3z"/></svg>
+                    Load Video
+                </button>
+                <button id="btnDriveDownload" class="btn btn-outline">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                    Google Drive Link
+                </button>
             </div>
 
             <!-- UNDO / REDO BUTTONS -->
             <div class="history-actions-box">
-                <button id="btnUndo" class="btn-xs" title="Undo (Ctrl+Z)" disabled>↩️ Undo</button>
-                <button id="btnRedo" class="btn-xs" title="Redo (Ctrl+Y)" disabled>↪️ Redo</button>
+                <button id="btnUndo" class="btn-xs" title="Undo (Ctrl+Z)" disabled>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                    Undo
+                </button>
+                <button id="btnRedo" class="btn-xs" title="Redo (Ctrl+Y)" disabled>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+                    Redo
+                </button>
             </div>
 
             <!-- ASPECT RATIO SELECTOR -->
@@ -70,8 +87,14 @@
             </div>
 
             <div class="header-actions">
-                <button id="btnOpenGallery" class="btn btn-secondary">🎬 Gallery</button>
-                <button id="btnExportRender" class="btn btn-primary btn-glow">🚀 Export Options</button>
+                <button id="btnOpenGallery" class="btn btn-secondary">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18M17 3v18M3 8h18M3 16h18"/></svg>
+                    Gallery
+                </button>
+                <button id="btnExportRender" class="btn btn-primary btn-glow">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    Export Options
+                </button>
             </div>
         </header>
 
@@ -81,21 +104,44 @@
             <!-- LEFT COLUMN: CAPTIONS MANAGER -->
             <section class="panel captions-panel glass-panel">
                 <div class="panel-header">
-                    <h2><span class="panel-icon">📝</span> Captions</h2>
+                    <h2>
+                        <span class="panel-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6.1H3"/><path d="M21 12.1H3"/><path d="M15.1 18H3"/></svg>
+                        </span>
+                        Captions
+                    </h2>
                     <div class="panel-actions">
-                        <button id="btnAiCaptions" class="btn-sm btn-glow-purple" title="Auto-generate AI Captions">⚡ AI Transcribe</button>
-                        <button id="btnImportSrt" class="btn-sm">Import .SRT</button>
+                        <button id="btnAiCaptions" class="btn-sm btn-glow-purple" title="Auto-generate AI Captions">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            AI Transcribe
+                        </button>
+                        <button id="btnImportSrt" class="btn-sm">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" x2="12" y1="18" y2="12"/><line x1="9" x2="15" y1="15" y2="15"/></svg>
+                            Import .SRT
+                        </button>
                         <input type="file" id="srtFileInput" accept=".srt" style="display:none;">
-                        <button id="btnAddCaption" class="btn-sm btn-accent">+ Add</button>
+                        <button id="btnAddCaption" class="btn-sm btn-accent">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                            Add
+                        </button>
                     </div>
                 </div>
 
                 <!-- CAPTION SEARCH FILTER & SHIFT TOOLBAR -->
                 <div class="captions-toolbar-row">
-                    <input type="text" id="captionSearchInput" placeholder="🔍 Search captions..." class="pp-input-sm">
+                    <div class="search-input-wrapper">
+                        <svg class="search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
+                        <input type="text" id="captionSearchInput" placeholder="Search captions..." class="pp-input-sm search-field">
+                    </div>
                     <div class="shift-btns">
-                        <button id="btnShiftMinus" class="btn-xs" title="Shift -0.5s">⏮ -0.5s</button>
-                        <button id="btnShiftPlus" class="btn-xs" title="Shift +0.5s">⏭ +0.5s</button>
+                        <button id="btnShiftMinus" class="btn-xs" title="Shift -0.5s">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 19 2 12 11 5 11 19"/><polygon points="22 19 13 12 22 5 22 19"/></svg>
+                            -0.5s
+                        </button>
+                        <button id="btnShiftPlus" class="btn-xs" title="Shift +0.5s">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>
+                            +0.5s
+                        </button>
                     </div>
                 </div>
 
@@ -103,16 +149,30 @@
                     <!-- Dynamic Caption Cards injected here by captions.js -->
                 </div>
                 <div class="captions-footer-actions">
-                    <button id="btnDownloadSrt" class="btn-xs">⬇️ .SRT</button>
-                    <button id="btnDownloadVtt" class="btn-xs">⬇️ .VTT</button>
-                    <button id="btnDownloadTxt" class="btn-xs">⬇️ .TXT</button>
+                    <button id="btnDownloadSrt" class="btn-xs">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                        .SRT
+                    </button>
+                    <button id="btnDownloadVtt" class="btn-xs">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                        .VTT
+                    </button>
+                    <button id="btnDownloadTxt" class="btn-xs">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                        .TXT
+                    </button>
                 </div>
             </section>
 
             <!-- MIDDLE COLUMN: DYNAMIC VIEWPORT & TIMELINE -->
             <section class="panel preview-panel glass-panel">
                 <div class="panel-header">
-                    <h2><span class="panel-icon">👁️</span> Program Monitor</h2>
+                    <h2>
+                        <span class="panel-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+                        </span>
+                        Program Monitor
+                    </h2>
                     <div class="timecode-display" id="timecodeDisplay">00:00:00:00</div>
                 </div>
 
@@ -137,12 +197,23 @@
 
                 <!-- VIDEO TRANSPORT CONTROLS -->
                 <div class="player-controls">
-                    <button id="btnPlayPause" class="btn-ctrl">▶</button>
-                    <button id="btnStepBack" class="btn-ctrl">⏪ -5s</button>
-                    <button id="btnStepForward" class="btn-ctrl">⏩ +5s</button>
-                    <button id="btnLoopToggle" class="btn-ctrl" title="Toggle Loop Playback">🔁 Loop</button>
+                    <button id="btnPlayPause" class="btn-ctrl" title="Play / Pause (Space)">
+                        <svg class="play-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </button>
+                    <button id="btnStepBack" class="btn-ctrl" title="Rewind 5s (Left Arrow)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        -5s
+                    </button>
+                    <button id="btnStepForward" class="btn-ctrl" title="Fast Forward 5s (Right Arrow)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                        +5s
+                    </button>
+                    <button id="btnLoopToggle" class="btn-ctrl" title="Toggle Loop Playback">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+                        Loop
+                    </button>
                     <div class="volume-box">
-                        <span>🔊</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
                         <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1">
                     </div>
                 </div>
@@ -152,10 +223,16 @@
                     <div class="timeline-toolbar">
                         <div class="timeline-tools-left">
                             <span class="toolbar-label">Timeline Tracks</span>
-                            <button id="btnSplitPlayhead" class="btn-xs" title="Cut/Split active subtitle clip at playhead time">✂️ Cut at Playhead</button>
+                            <button id="btnSplitPlayhead" class="btn-xs" title="Cut/Split active subtitle clip at playhead time (Key: C or K)">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" x2="8.12" y1="4" y2="15.88"/><line x1="14.47" x2="20" y1="14.48" y2="20"/><line x1="8.12" x2="12" y1="8.12" y2="12"/></svg>
+                                Cut at Playhead
+                            </button>
                         </div>
                         <div class="zoom-controls">
-                            <span>🔍 Zoom (Ctrl+Wheel):</span>
+                            <span class="zoom-label">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg>
+                                Zoom (Ctrl+Wheel):
+                            </span>
                             <input type="range" id="timelineZoom" min="50" max="1000" value="100">
                             <span id="zoomVal">100%</span>
                         </div>
@@ -187,12 +264,16 @@
                 <!-- ACTIVE SUBTITLE TRACK TITLE BAR -->
                 <div class="pp-track-bar">
                     <div class="pp-track-left">
-                        <span class="pp-track-icon">🎬</span>
+                        <span class="pp-track-icon">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
+                        </span>
                         <span class="pp-track-title">C1:Subtitle</span>
                     </div>
                     <div class="pp-track-right">
                         <span class="pp-track-count">101 of...</span>
-                        <span class="pp-more-dots">•••</span>
+                        <span class="pp-more-dots">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>
+                        </span>
                     </div>
                 </div>
 
@@ -206,16 +287,32 @@
                     <!-- ACCORDION 1: TRACK STYLE & PRESETS -->
                     <div class="pp-accordion-group">
                         <div class="pp-accordion-header" data-target="acc-track-style">
-                            <span class="pp-arrow">∨</span>
+                            <span class="pp-arrow">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                            </span>
                             <span class="pp-acc-title">Track Style & Presets</span>
-                            <span class="pp-plus-btn">+</span>
+                            <span class="pp-plus-btn">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                            </span>
                         </div>
                         <div class="pp-accordion-body" id="acc-track-style">
                             <div class="preset-buttons-grid">
-                                <button class="btn-preset" data-preset="pop_yellow">🌟 Pop Yellow</button>
-                                <button class="btn-preset active" data-preset="classic_white">⚪ Classic White</button>
-                                <button class="btn-preset" data-preset="neon_pink">💗 Neon Pink</button>
-                                <button class="btn-preset" data-preset="podcast_pill">🎙️ Podcast Pill</button>
+                                <button class="btn-preset" data-preset="pop_yellow">
+                                    <span class="preset-dot pop-yellow-dot"></span>
+                                    Pop Yellow
+                                </button>
+                                <button class="btn-preset active" data-preset="classic_white">
+                                    <span class="preset-dot classic-white-dot"></span>
+                                    Classic White
+                                </button>
+                                <button class="btn-preset" data-preset="neon_pink">
+                                    <span class="preset-dot neon-pink-dot"></span>
+                                    Neon Pink
+                                </button>
+                                <button class="btn-preset" data-preset="podcast_pill">
+                                    <span class="preset-dot podcast-pill-dot"></span>
+                                    Podcast Pill
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -223,16 +320,18 @@
                     <!-- ACCORDION 2: TEXT -->
                     <div class="pp-accordion-group">
                         <div class="pp-accordion-header" data-target="acc-text">
-                            <span class="pp-arrow">∨</span>
+                            <span class="pp-arrow">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                            </span>
                             <span class="pp-acc-title">Text</span>
                         </div>
                         <div class="pp-accordion-body" id="acc-text">
                             <div class="form-row">
                                 <select id="fontFamilySelect" class="pp-select">
-                                    <optgroup label="⭐ Primary & Custom Fonts" id="customFontsOptGroup">
-                                        <option value="Century Gothic" selected>⭐ Century Gothic (Default Bold)</option>
+                                    <optgroup label="Primary & Custom Fonts" id="customFontsOptGroup">
+                                        <option value="Century Gothic" selected>Century Gothic (Default Bold)</option>
                                     </optgroup>
-                                    <optgroup label="🔥 Popular Subtitle Fonts">
+                                    <optgroup label="Popular Subtitle Fonts">
                                         <option value="Poppins">Poppins (Clean / Viral)</option>
                                         <option value="Montserrat">Montserrat (Modern Heavy)</option>
                                         <option value="Bebas Neue">Bebas Neue (Tall Bold)</option>
@@ -242,7 +341,7 @@
                                         <option value="Roboto">Roboto (Crisp)</option>
                                         <option value="Questrial">Questrial / Gothic</option>
                                     </optgroup>
-                                    <optgroup label="🖥️ System Fonts">
+                                    <optgroup label="System Fonts">
                                         <option value="Arial">Arial</option>
                                     </optgroup>
                                 </select>
@@ -256,7 +355,10 @@
                                     <option value="Black">Black</option>
                                 </select>
 
-                                <button id="btnUploadFont" class="btn-sm btn-icon" title="Upload Custom Font">⬆️ Custom Font</button>
+                                <button id="btnUploadFont" class="btn-sm btn-icon" title="Upload Custom Font">
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                                    Custom Font
+                                </button>
                                 <input type="file" id="fontFileInput" accept=".ttf,.otf" style="display:none;">
                             </div>
 
@@ -274,10 +376,22 @@
                             <div class="form-row">
                                 <label>Paragraph Alignment:</label>
                                 <div class="para-align-grid">
-                                    <button class="btn-para-align" data-align="left" title="Align Left">⯇ Left</button>
-                                    <button class="btn-para-align active" data-align="center" title="Align Center">≡ Center</button>
-                                    <button class="btn-para-align" data-align="right" title="Align Right">⯈ Right</button>
-                                    <button class="btn-para-align" data-align="justify" title="Justify">☰ Justify</button>
+                                    <button class="btn-para-align" data-align="left" title="Align Left">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="17" x2="3" y1="6" y2="6"/><line x1="21" x2="3" y1="12" y2="12"/><line x1="15" x2="3" y1="18" y2="18"/></svg>
+                                        Left
+                                    </button>
+                                    <button class="btn-para-align active" data-align="center" title="Align Center">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" x2="6" y1="6" y2="6"/><line x1="21" x2="3" y1="12" y2="12"/><line x1="18" x2="6" y1="18" y2="18"/></svg>
+                                        Center
+                                    </button>
+                                    <button class="btn-para-align" data-align="right" title="Align Right">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="21" x2="7" y1="6" y2="6"/><line x1="21" x2="3" y1="12" y2="12"/><line x1="21" x2="9" y1="18" y2="18"/></svg>
+                                        Right
+                                    </button>
+                                    <button class="btn-para-align" data-align="justify" title="Justify">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="21" x2="3" y1="6" y2="6"/><line x1="21" x2="3" y1="12" y2="12"/><line x1="21" x2="3" y1="18" y2="18"/></svg>
+                                        Justify
+                                    </button>
                                 </div>
                             </div>
 
@@ -309,7 +423,9 @@
                     <!-- ACCORDION 3: ALIGN AND TRANSFORM -->
                     <div class="pp-accordion-group">
                         <div class="pp-accordion-header" data-target="acc-align-transform">
-                            <span class="pp-arrow">∨</span>
+                            <span class="pp-arrow">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                            </span>
                             <span class="pp-acc-title">Align and Transform</span>
                         </div>
                         <div class="pp-accordion-body" id="acc-align-transform">
@@ -328,11 +444,16 @@
 
                                 <!-- PREMIERE PRO BLUE NUMERIC POSITION READOUTS & RESET BUTTON -->
                                 <div class="pp-readout-row">
-                                    <span class="pp-icon-symbol">↔</span>
+                                    <span class="pp-icon-symbol">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" x2="20" y1="12" y2="12"/><polyline points="8 8 4 12 8 16"/><polyline points="16 8 20 12 16 16"/></svg>
+                                    </span>
                                     <input type="number" id="posXInput" value="0" class="pp-inline-blue-input" placeholder="0">
                                     <span>,</span>
                                     <input type="number" id="posYInput" value="444" class="pp-inline-blue-input" placeholder="0">
-                                    <button id="btnResetPos" class="btn-xs" style="margin-left: 6px;">↺ Reset</button>
+                                    <button id="btnResetPos" class="btn-xs" style="margin-left: 6px;">
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                        Reset
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -341,9 +462,13 @@
                     <!-- ACCORDION 4: APPEARANCE -->
                     <div class="pp-accordion-group">
                         <div class="pp-accordion-header" data-target="acc-appearance">
-                            <span class="pp-arrow">∨</span>
+                            <span class="pp-arrow">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                            </span>
                             <span class="pp-acc-title">Appearance</span>
-                            <span class="pp-wrench-btn">🔧</span>
+                            <span class="pp-wrench-btn">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                            </span>
                         </div>
                         <div class="pp-accordion-body" id="acc-appearance">
                             
@@ -355,7 +480,9 @@
                                 </div>
                                 <div class="color-picker-box">
                                     <input type="color" id="primaryColorInput" value="#FFFFFF">
-                                    <span class="pp-eyedropper-btn" title="Pick Color">💧</span>
+                                    <span class="pp-eyedropper-btn" title="Pick Color">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 2 8 8-4 4-8-8 4-4Z"/><path d="m18 10-4-4"/><path d="m2 22 7-7"/><path d="M9 15v3h3l7-7"/></svg>
+                                    </span>
                                     <input type="range" id="primaryOpacityInput" min="0" max="1" step="0.05" value="1" title="Opacity" style="display:none;">
                                 </div>
                             </div>
@@ -369,14 +496,18 @@
                                     </div>
                                     <div class="color-picker-box">
                                         <input type="color" id="strokeColorInput" value="#000000">
-                                        <span class="pp-eyedropper-btn" title="Pick Color">💧</span>
+                                        <span class="pp-eyedropper-btn" title="Pick Color">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 2 8 8-4 4-8-8 4-4Z"/><path d="m18 10-4-4"/><path d="m2 22 7-7"/><path d="M9 15v3h3l7-7"/></svg>
+                                        </span>
                                         <span class="pp-blue-text"><input type="number" id="strokeWidthInput" value="3.0" min="0" max="30" step="0.5" class="pp-inline-blue-input"> px</span>
                                         <select id="strokeTypeSelect" class="pp-select-sm">
                                             <option value="Outer" selected>Outer</option>
                                             <option value="Inner">Inner</option>
                                             <option value="Center">Center</option>
                                         </select>
-                                        <span class="pp-plus-btn">+</span>
+                                        <span class="pp-plus-btn">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -392,7 +523,9 @@
                                         <div class="pp-checkerboard-swatch">
                                             <input type="color" id="bgColorInput" value="#000000">
                                         </div>
-                                        <span class="pp-eyedropper-btn" title="Pick Color">💧</span>
+                                        <span class="pp-eyedropper-btn" title="Pick Color">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 2 8 8-4 4-8-8 4-4Z"/><path d="m18 10-4-4"/><path d="m2 22 7-7"/><path d="M9 15v3h3l7-7"/></svg>
+                                        </span>
                                     </div>
                                 </div>
                                 <div class="form-row split-2" style="margin-top: 4px;">
@@ -416,8 +549,12 @@
                                     </div>
                                     <div class="color-picker-box">
                                         <input type="color" id="shadowColorInput" value="#000000">
-                                        <span class="pp-eyedropper-btn" title="Pick Color">💧</span>
-                                        <span class="pp-plus-btn">+</span>
+                                        <span class="pp-eyedropper-btn" title="Pick Color">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 2 8 8-4 4-8-8 4-4Z"/><path d="m18 10-4-4"/><path d="m2 22 7-7"/><path d="M9 15v3h3l7-7"/></svg>
+                                        </span>
+                                        <span class="pp-plus-btn">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                                        </span>
                                     </div>
                                 </div>
                                 <div class="form-row split-2" style="margin-top: 4px;">
@@ -437,7 +574,9 @@
                     <!-- DIAGNOSTIC EXECUTION CONSOLE -->
                     <div class="pp-accordion-group">
                         <div class="pp-accordion-header" data-target="acc-console">
-                            <span class="pp-arrow">∨</span>
+                            <span class="pp-arrow">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                            </span>
                             <span class="pp-acc-title">Execution Console</span>
                         </div>
                         <div class="pp-accordion-body" id="acc-console">
@@ -455,7 +594,10 @@
         <!-- EXPORT OPTIONS DIALOG MODAL -->
         <div class="modal-overlay" id="exportOptionsModal" style="display: none;">
             <div class="modal-card glass-panel" style="width: 480px;">
-                <h3>⚙️ Export Settings & Options</h3>
+                <div class="modal-title-row">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <h3>Export Settings & Options</h3>
+                </div>
 
                 <div class="form-row">
                     <label for="customOutputDirInput">Target Local Export Folder:</label>
@@ -472,22 +614,34 @@
                     <div class="artifacts-check-grid">
                         <div class="check-item">
                             <input type="checkbox" id="exportMp4Check" checked>
-                            <label for="exportMp4Check">🎥 Rendered MP4 Video</label>
+                            <label for="exportMp4Check">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m10 8 6 4-6 4V8z"/></svg>
+                                Rendered MP4 Video
+                            </label>
                         </div>
                         <div class="check-item">
                             <input type="checkbox" id="exportSrtCheck" checked>
-                            <label for="exportSrtCheck">📄 .SRT Subtitle File</label>
+                            <label for="exportSrtCheck">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
+                                .SRT Subtitle File
+                            </label>
                         </div>
                         <div class="check-item">
                             <input type="checkbox" id="exportXmlCheck" checked>
-                            <label for="exportXmlCheck">🎬 Premiere Pro XML Sequence</label>
+                            <label for="exportXmlCheck">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-purple)" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                                Premiere Pro XML Sequence
+                            </label>
                         </div>
                     </div>
                 </div>
 
                 <div class="modal-actions-row">
                     <button id="btnCloseExportOptions" class="btn btn-secondary">Cancel</button>
-                    <button id="btnConfirmExport" class="btn btn-primary btn-glow">🚀 Start Render Export</button>
+                    <button id="btnConfirmExport" class="btn btn-primary btn-glow">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        Start Render Export
+                    </button>
                 </div>
             </div>
         </div>
@@ -496,8 +650,14 @@
         <div class="modal-overlay" id="exportsGalleryModal" style="display: none;">
             <div class="modal-card glass-panel gallery-modal-card">
                 <div class="gallery-header">
-                    <h3>🎬 Rendered Videos Gallery</h3>
-                    <button id="btnCloseGallery" class="btn-xs">✖ Close</button>
+                    <div class="modal-title-row">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18M17 3v18M3 8h18M3 16h18"/></svg>
+                        <h3>Rendered Videos Gallery</h3>
+                    </div>
+                    <button id="btnCloseGallery" class="btn-xs">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+                        Close
+                    </button>
                 </div>
 
                 <!-- DASHBOARD EMBEDDED VIDEO PLAYER -->
@@ -514,7 +674,10 @@
         <!-- RENDER PROGRESS MODAL DIALOG -->
         <div class="modal-overlay" id="renderModal" style="display: none;">
             <div class="modal-card glass-panel">
-                <h3>🚀 Exporting Video & Subtitles...</h3>
+                <div class="modal-title-row">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <h3>Exporting Video & Subtitles...</h3>
+                </div>
                 <div class="progress-bar-track">
                     <div class="progress-bar-fill" id="renderProgressFill" style="width: 0%;"></div>
                 </div>

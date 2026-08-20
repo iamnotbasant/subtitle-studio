@@ -171,27 +171,27 @@ def render_ass_video(video_path: str or Path, ass_path: str or Path, output_path
     stages = [
         {
             "name": "Stage 1: GPU NVENC + Custom Fonts + Direct Stream Copy Audio",
-            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
+            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
         },
         {
             "name": "Stage 2: GPU NVENC + Custom Fonts + AAC Audio Re-encode",
-            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
         },
         {
             "name": "Stage 3: CPU libx264 Ultrafast + Custom Fonts + Direct Stream Copy Audio",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
+            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
         },
         {
             "name": "Stage 4: CPU libx264 Ultrafast + Custom Fonts + AAC Audio Re-encode",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
         },
         {
             "name": "Stage 5: CPU libx264 Veryfast + Custom Fonts + Safe Pixel Format",
-            "args": ["-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+            "args": ["-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
         },
         {
             "name": "Stage 6: CPU libx264 High Compatibility Baseline",
-            "args": ["-c:v", "libx264", "-preset", "fast", "-profile:v", "baseline", "-level", "3.0", "-pix_fmt", "yuv420p", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "128k"]
+            "args": ["-c:v", "libx264", "-preset", "fast", "-profile:v", "baseline", "-level", "3.0", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "128k"]
         }
     ]
 

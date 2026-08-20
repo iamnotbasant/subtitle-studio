@@ -285,7 +285,13 @@ function openExportsGalleryModal() {
 function closeExportsGalleryModal() {
     const modal = document.getElementById('exportsGalleryModal');
     const player = document.getElementById('galleryVideoPlayer');
-    if (player) player.pause();
+    if (player) {
+        player.pause();
+        player.removeAttribute('src');
+        player.load();
+        player.oncanplay = null;
+        player.onerror = null;
+    }
     if (modal) modal.style.display = 'none';
 }
 
@@ -320,9 +326,18 @@ async function loadExportsGallery() {
                     <div class="gallery-card-sub">${item.size_mb} MB • ${item.duration}s • [${artifactsText}]</div>
                 </div>
                 <div class="gallery-card-actions">
-                    <button class="btn-xs play-gallery-btn" data-filename="${item.filename}">▶ Play in Dashboard</button>
-                    <a href="/api/exports/${encodeURIComponent(item.filename)}" download class="btn-xs">⬇️ Download</a>
-                    <button class="btn-xs copy-path-btn" data-path="${item.path}">📋 Copy Path</button>
+                    <button class="btn-xs play-gallery-btn" data-filename="${item.filename}">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        Play in Dashboard
+                    </button>
+                    <a href="/api/exports/${encodeURIComponent(item.filename)}" download class="btn-xs">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                        Download
+                    </a>
+                    <button class="btn-xs copy-path-btn" data-path="${item.path}">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        Copy Path
+                    </button>
                 </div>
             `;
 
@@ -333,8 +348,16 @@ async function loadExportsGallery() {
                 const player = document.getElementById('galleryVideoPlayer');
                 if (player) {
                     player.src = `/api/exports/${encodeURIComponent(item.filename)}`;
-                    player.play();
-                    logExec(`Playing rendered video in gallery player: ${item.filename}`, "info");
+                    player.load();
+                    player.oncanplay = () => {
+                        player.play().catch(err => {
+                            logExec(`Gallery playback error: ${err.message}`, "warn");
+                        });
+                    };
+                    player.onerror = () => {
+                        logExec(`Failed to load exported video: ${item.filename}`, "error");
+                    };
+                    logExec(`Loading rendered video in gallery player: ${item.filename}`, "info");
                 }
             });
 
@@ -614,10 +637,10 @@ function initAppListeners() {
             btnPlayPause.addEventListener('click', () => {
                 if (video.paused) {
                     video.play();
-                    btnPlayPause.textContent = '⏸';
+                    btnPlayPause.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect width="4" height="16" x="6" y="4"/><rect width="4" height="16" x="14" y="4"/></svg>';
                 } else {
                     video.pause();
-                    btnPlayPause.textContent = '▶';
+                    btnPlayPause.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
                 }
             });
         }

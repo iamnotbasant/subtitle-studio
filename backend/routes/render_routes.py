@@ -358,4 +358,11 @@ def stream_export_file(filename: str):
     file_path = OUTPUT_DIR / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"Exported video '{filename}' not found.")
-    return FileResponse(str(file_path), media_type="video/mp4")
+    return FileResponse(
+        str(file_path.resolve()),
+        media_type="video/mp4",
+        headers={
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=3600"
+        }
+    )
