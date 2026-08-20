@@ -698,18 +698,49 @@
 
         <!-- RENDER PROGRESS MODAL DIALOG -->
         <div class="modal-overlay" id="renderModal" style="display: none;">
-            <div class="modal-card">
-                <div class="modal-title-row">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    <h3>Exporting Video & Subtitles...</h3>
+            <div class="modal-card render-modal-card">
+                <div class="modal-title-row" style="justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="render-spinner-icon">
+                            <svg class="spin-animation" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>
+                        </div>
+                        <h3>Exporting Video & Subtitles</h3>
+                    </div>
+                    <span id="renderStageText" class="render-stage-badge">Stage 1/4</span>
                 </div>
+
+                <!-- Big Percent and Status Display -->
+                <div class="render-hero-display">
+                    <div class="render-big-percent" id="renderProgressPercent">0%</div>
+                    <div class="render-status-text" id="renderStatusText">Initializing render engines...</div>
+                </div>
+
+                <!-- High Visual Polish Progress Bar -->
                 <div class="progress-bar-track">
-                    <div class="progress-bar-fill" id="renderProgressFill" style="width: 0%;"></div>
+                    <div class="progress-bar-fill" id="renderProgressFill" style="width: 0%;">
+                        <div class="progress-bar-shimmer"></div>
+                    </div>
                 </div>
-                <div class="modal-status-text" id="renderStatusText">Initializing render engines...</div>
-                <div class="modal-details-row">
-                    <span id="renderStageText">Stage 1/6</span>
-                    <span id="renderSpeedText">0x</span>
+
+                <!-- Detailed 3-Card Metrics Grid -->
+                <div class="render-metrics-grid">
+                    <div class="render-metric-item">
+                        <span class="metric-label">SPEED</span>
+                        <span class="metric-value" id="renderSpeedText">0x</span>
+                    </div>
+                    <div class="render-metric-item">
+                        <span class="metric-label">ETA</span>
+                        <span class="metric-value" id="renderEtaText">--</span>
+                    </div>
+                    <div class="render-metric-item">
+                        <span class="metric-label">FRAMES</span>
+                        <span class="metric-value" id="renderFramesText">--</span>
+                    </div>
+                </div>
+
+                <div id="renderErrorBox" class="render-error-box" style="display: none;">
+                    <span id="renderErrorMsg">Render error details</span>
+                    <button id="btnDismissRenderError" class="btn btn-secondary btn-xs">Dismiss</button>
                 </div>
             </div>
         </div>

@@ -298,17 +298,38 @@ function startProgressPolling() {
     renderPollInterval = setInterval(async () => {
         try {
             const res = await fetch('/api/render_progress');
+            if (!res.ok) return;
             const data = await res.json();
 
             const fill = document.getElementById('renderProgressFill');
+            const percentText = document.getElementById('renderProgressPercent');
             const statusText = document.getElementById('renderStatusText');
             const stageText = document.getElementById('renderStageText');
             const speedText = document.getElementById('renderSpeedText');
+            const etaText = document.getElementById('renderEtaText');
+            const framesText = document.getElementById('renderFramesText');
+            const errorBox = document.getElementById('renderErrorBox');
+            const errorMsg = document.getElementById('renderErrorMsg');
 
-            if (fill) fill.style.width = `${data.percent}%`;
-            if (statusText) statusText.textContent = data.status;
-            if (stageText) stageText.textContent = data.stage;
-            if (speedText) speedText.textContent = data.speed;
+            const pctVal = Math.min(100, Math.max(0, parseFloat(data.percent || 0)));
+
+            if (fill) fill.style.width = `${pctVal}%`;
+            if (percentText) {
+                percentText.textContent = pctVal >= 100 ? "100%" : (pctVal > 0 ? `${pctVal.toFixed(1)}%` : "0%");
+            }
+            if (statusText && data.status) statusText.textContent = data.status;
+            if (stageText && data.stage) stageText.textContent = data.stage;
+            if (speedText && data.speed) speedText.textContent = data.speed;
+            if (etaText && data.eta) etaText.textContent = data.eta;
+            if (framesText) {
+                if (data.total_frames && data.total_frames > 0) {
+                    framesText.textContent = `${data.current_frame || 0} / ${data.total_frames}`;
+                } else if (data.current_frame) {
+                    framesText.textContent = `${data.current_frame}`;
+                } else {
+                    framesText.textContent = "--";
+                }
+            }
 
             if (data.percent >= 100 && data.stage === 'Done') {
                 if (isHandledCompletion) return;
@@ -319,28 +340,69 @@ function startProgressPolling() {
                     renderPollInterval = null;
                 }
 
+                if (statusText) statusText.textContent = "Render completed successfully!";
+                if (percentText) percentText.textContent = "100%";
+                if (fill) fill.style.width = "100%";
+
                 logExec("Video rendering & subtitle burn completed successfully!", "success");
                 soundEngine.success();
                 setTimeout(() => {
                     showRenderModal(false);
                     openExportsGalleryModal();
-                }, 800);
+                }, 750);
             } else if (data.stage === 'Failed') {
                 if (renderPollInterval) {
                     clearInterval(renderPollInterval);
                     renderPollInterval = null;
                 }
-                logExec(`Render failed: ${data.error}`, "error");
+                if (errorBox) errorBox.style.display = 'flex';
+                if (errorMsg) errorMsg.textContent = data.error || data.status || "Rendering failed";
+                if (statusText) statusText.textContent = "Render encountered an error.";
+                logExec(`Render failed: ${data.error || data.status}`, "error");
             }
         } catch (err) {
             console.error("Progress polling error:", err);
         }
-    }, 600);
+    }, 250);
 }
 
 function showRenderModal(show) {
     const modal = document.getElementById('renderModal');
-    if (modal) modal.style.display = show ? 'flex' : 'none';
+    if (!modal) return;
+
+    if (show) {
+        // Reset elements to pristine initial state
+        const fill = document.getElementById('renderProgressFill');
+        const percentText = document.getElementById('renderProgressPercent');
+        const statusText = document.getElementById('renderStatusText');
+        const stageText = document.getElementById('renderStageText');
+        const speedText = document.getElementById('renderSpeedText');
+        const etaText = document.getElementById('renderEtaText');
+        const framesText = document.getElementById('renderFramesText');
+        const errorBox = document.getElementById('renderErrorBox');
+
+        if (fill) fill.style.width = '0%';
+        if (percentText) percentText.textContent = '0%';
+        if (statusText) statusText.textContent = 'Initializing render engine...';
+        if (stageText) stageText.textContent = 'Starting...';
+        if (speedText) speedText.textContent = '0x';
+        if (etaText) etaText.textContent = '--';
+        if (framesText) framesText.textContent = '--';
+        if (errorBox) errorBox.style.display = 'none';
+
+        const btnDismiss = document.getElementById('btnDismissRenderError');
+        if (btnDismiss) {
+            btnDismiss.onclick = () => showRenderModal(false);
+        }
+
+        modal.style.display = 'flex';
+    } else {
+        modal.style.display = 'none';
+        if (renderPollInterval) {
+            clearInterval(renderPollInterval);
+            renderPollInterval = null;
+        }
+    }
 }
 
 // ==========================================

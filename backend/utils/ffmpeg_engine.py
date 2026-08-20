@@ -152,58 +152,104 @@ def generate_premiere_xml(video_path: str or Path, captions: list, output_xml_pa
     ET.indent(tree, space="  ")
     tree.write(output_xml_path, encoding="utf-8", xml_declaration=True)
 
+def check_nvenc_support() -> bool:
+    """
+    Checks whether NVIDIA NVENC hardware encoder is actively available.
+    """
+    try:
+        res = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-f", "lavfi", "-i", "nullsrc=s=64x64:d=0.04", "-c:v", "h264_nvenc", "-f", "null", "-"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=2
+        )
+        return res.returncode == 0
+    except Exception:
+        return False
+
+def parse_ffmpeg_timestamp(time_str: str) -> float:
+    """
+    Converts FFmpeg timestamp string (e.g. '00:01:23.456000') into total seconds.
+    """
+    try:
+        parts = time_str.strip().split(":")
+        if len(parts) == 3:
+            h = float(parts[0])
+            m = float(parts[1])
+            s = float(parts[2])
+            return max(0.0, h * 3600.0 + m * 60.0 + s)
+    except Exception:
+        pass
+    return 0.0
+
 def render_ass_video(video_path: str or Path, ass_path: str or Path, output_path: Path, duration: float) -> bool:
     """
-    Executes the 6-stage fallback ASS subtitle FFmpeg render pipeline:
-      Stage 1: GPU NVENC Fast + Custom Fonts Dir + Copy Audio
-      Stage 2: GPU NVENC Fast + System Fonts Dir + Copy Audio
-      Stage 3: CPU libx264 Ultrafast + Custom Fonts Dir + Copy Audio
-      Stage 4: CPU libx264 Ultrafast + System Fonts Dir + Copy Audio
-      Stage 5: CPU libx264 Ultrafast + Custom Fonts Dir + AAC Audio
-      Stage 6: CPU libx264 Ultrafast + System Fonts Dir + AAC Audio
+    Executes an adaptive, high-performance subtitle burn FFmpeg render pipeline:
+    - Auto-detects NVENC GPU acceleration or defaults smoothly to CPU libx264 Ultrafast.
+    - Accurately tracks real-time progress, encoding speed, frame counts, and ETA.
     """
-    reset_render_progress()
-
     clean_video_path = str(Path(video_path).resolve())
     escaped_ass = escape_ffmpeg_filter_path(ass_path)
     escaped_custom_fonts = escape_ffmpeg_filter_path(CUSTOM_FONTS_DIR)
 
-    stages = [
-        {
-            "name": "Stage 1: GPU NVENC + Custom Fonts + Direct Stream Copy Audio",
-            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
-        },
-        {
-            "name": "Stage 2: GPU NVENC + Custom Fonts + AAC Audio Re-encode",
-            "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
-        },
-        {
-            "name": "Stage 3: CPU libx264 Ultrafast + Custom Fonts + Direct Stream Copy Audio",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
-        },
-        {
-            "name": "Stage 4: CPU libx264 Ultrafast + Custom Fonts + AAC Audio Re-encode",
-            "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
-        },
-        {
-            "name": "Stage 5: CPU libx264 Veryfast + Custom Fonts + Safe Pixel Format",
-            "args": ["-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
-        },
-        {
-            "name": "Stage 6: CPU libx264 High Compatibility Baseline",
-            "args": ["-c:v", "libx264", "-preset", "fast", "-profile:v", "baseline", "-level", "3.0", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "128k"]
-        }
-    ]
+    info = get_video_info(clean_video_path)
+    fps = info.get("fps") or 30.0
+    total_frames = int(round((duration or info.get("duration") or 0.0) * fps))
+
+    has_gpu = check_nvenc_support()
+
+    if has_gpu:
+        stages = [
+            {
+                "name": "GPU NVENC (Fast + Stream Copy Audio)",
+                "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
+            },
+            {
+                "name": "GPU NVENC (Fast + AAC Audio Re-encode)",
+                "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+            },
+            {
+                "name": "CPU libx264 (Ultrafast + Stream Copy Audio)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
+            },
+            {
+                "name": "CPU libx264 (Ultrafast + AAC Audio Re-encode)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+            }
+        ]
+    else:
+        stages = [
+            {
+                "name": "CPU libx264 (Ultrafast + Stream Copy Audio)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
+            },
+            {
+                "name": "CPU libx264 (Ultrafast + AAC Audio Re-encode)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+            },
+            {
+                "name": "CPU libx264 (Veryfast + Safe Pixel Format)",
+                "args": ["-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+            },
+            {
+                "name": "CPU libx264 (High Compatibility Baseline)",
+                "args": ["-c:v", "libx264", "-preset", "fast", "-profile:v", "baseline", "-level", "3.0", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "128k"]
+            }
+        ]
 
     progress_file = TEMP_DIR / "ffmpeg_progress.txt"
+    log_file_path = TEMP_DIR / "ffmpeg_render.log"
 
     for idx, stage in enumerate(stages, 1):
+        stage_label = f"Stage {idx}/{len(stages)}: {stage['name']}"
         update_render_progress(
-            percent=0,
-            status=f"Running {stage['name']}",
-            stage=f"Stage {idx}/6"
+            percent=0.0,
+            status=f"Starting {stage['name']}...",
+            stage=f"Stage {idx}/{len(stages)}",
+            current_frame=0,
+            total_frames=total_frames,
+            speed="0x",
+            eta="Calculating..."
         )
-        
+
         if progress_file.exists():
             try:
                 progress_file.unlink()
@@ -216,44 +262,114 @@ def render_ass_video(video_path: str or Path, ass_path: str or Path, output_path
             "-i", clean_video_path
         ] + stage["args"] + [str(output_path.resolve())]
 
-        log_file_path = TEMP_DIR / "ffmpeg_render.log"
+        start_wall_time = time.time()
+        last_speed_str = "1.0x"
+        last_current_frame = 0
+
         try:
             with open(log_file_path, "w", encoding="utf-8", errors="ignore") as log_file:
                 process = subprocess.Popen(cmd, stdout=log_file, stderr=log_file, text=True)
-                
+
                 while process.poll() is None:
-                    time.sleep(0.2)
-                    if progress_file.exists():
-                        try:
-                            with open(progress_file, "r") as pf:
-                                content = pf.read()
-                            
-                            out_time_ms = 0
-                            speed = "1x"
-                            for line in content.splitlines():
-                                if line.startswith("out_time_ms="):
-                                    val = line.split("=")[1].strip()
-                                    if val.isdigit():
-                                        out_time_ms = int(val)
-                                elif line.startswith("speed="):
-                                    speed = line.split("=")[1].strip()
-                            
-                            current_secs = out_time_ms / 1_000_000.0
-                            if duration > 0:
-                                pct = min(99.9, (current_secs / duration) * 100.0)
-                                update_render_progress(
-                                    percent=pct,
-                                    speed=speed,
-                                    status=f"Rendering: {pct:.1f}% ({stage['name']})"
-                                )
-                        except Exception:
-                            pass
+                    time.sleep(0.15)
+                    if not progress_file.exists():
+                        continue
+
+                    try:
+                        content = ""
+                        with open(progress_file, "r", encoding="utf-8", errors="ignore") as pf:
+                            content = pf.read()
+
+                        if not content:
+                            continue
+
+                        current_secs = 0.0
+                        cur_frame = 0
+                        speed_str = last_speed_str
+                        speed_factor = 1.0
+
+                        for line in content.splitlines():
+                            line_strip = line.strip()
+                            if line_strip.startswith("out_time_us="):
+                                val_str = line_strip.split("=", 1)[1].strip()
+                                if val_str.lstrip("-").isdigit():
+                                    us = int(val_str)
+                                    if us > 0:
+                                        current_secs = max(current_secs, us / 1_000_000.0)
+                            elif line_strip.startswith("out_time_ms="):
+                                val_str = line_strip.split("=", 1)[1].strip()
+                                if val_str.lstrip("-").isdigit():
+                                    us = int(val_str)
+                                    if us > 0:
+                                        current_secs = max(current_secs, us / 1_000_000.0)
+                            elif line_strip.startswith("out_time="):
+                                time_part = line_strip.split("=", 1)[1].strip()
+                                if ":" in time_part:
+                                    parsed_s = parse_ffmpeg_timestamp(time_part)
+                                    if parsed_s > 0:
+                                        current_secs = max(current_secs, parsed_s)
+                            elif line_strip.startswith("frame="):
+                                f_str = line_strip.split("=", 1)[1].strip()
+                                if f_str.isdigit():
+                                    cur_frame = max(cur_frame, int(f_str))
+                            elif line_strip.startswith("speed="):
+                                sp_str = line_strip.split("=", 1)[1].strip()
+                                if sp_str and sp_str != "N/A":
+                                    speed_str = sp_str
+                                    last_speed_str = sp_str
+                                    try:
+                                        speed_factor = float(sp_str.replace("x", "").strip())
+                                    except Exception:
+                                        speed_factor = 1.0
+
+                        last_current_frame = cur_frame
+
+                        pct = 0.0
+                        if duration > 0:
+                            pct_time = (current_secs / duration) * 100.0
+                            pct_frame = (cur_frame / total_frames * 100.0) if total_frames > 0 else 0.0
+                            pct = min(99.5, max(0.0, max(pct_time, pct_frame)))
+                        elif total_frames > 0 and cur_frame > 0:
+                            pct = min(99.5, max(0.0, (cur_frame / total_frames) * 100.0))
+
+                        # Calculate ETA
+                        eta_str = "--"
+                        if duration > 0 and current_secs > 0:
+                            remaining_s = max(0.0, duration - current_secs)
+                            if speed_factor > 0.05:
+                                eta_val = remaining_s / speed_factor
+                            else:
+                                elapsed = max(0.1, time.time() - start_wall_time)
+                                eta_val = (remaining_s / current_secs) * elapsed
+
+                            if eta_val >= 60:
+                                eta_str = f"{int(eta_val // 60)}m {int(eta_val % 60):02d}s"
+                            else:
+                                eta_str = f"{int(round(eta_val))}s"
+                        elif duration > 0:
+                            eta_str = f"{int(round(duration))}s"
+
+                        update_render_progress(
+                            percent=pct,
+                            status=f"Rendering: {pct:.1f}% ({stage['name']})",
+                            stage=f"Stage {idx}/{len(stages)}",
+                            current_frame=cur_frame,
+                            total_frames=total_frames,
+                            speed=speed_str,
+                            eta=eta_str
+                        )
+                    except Exception:
+                        pass
 
             if process.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
                 update_render_progress(
                     percent=100.0,
                     status="Render Completed Successfully",
-                    stage="Done"
+                    stage="Done",
+                    current_frame=total_frames if total_frames > 0 else last_current_frame,
+                    total_frames=total_frames if total_frames > 0 else last_current_frame,
+                    speed=last_speed_str,
+                    eta="0s"
                 )
                 return True
 
@@ -263,8 +379,8 @@ def render_ass_video(video_path: str or Path, ass_path: str or Path, output_path
 
     update_render_progress(
         percent=0,
-        status="Render Failed Across All Fallback Engines",
+        status="Render Failed Across Fallback Engines",
         stage="Failed",
-        error="All 6 render stages failed to output video."
+        error="All render stages failed to output video. Check log for details."
     )
     return False

@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from config import TEMP_DIR, OUTPUT_DIR, CUSTOM_FONTS_DIR, get_render_progress, reset_render_progress
+from config import TEMP_DIR, OUTPUT_DIR, CUSTOM_FONTS_DIR, get_render_progress, reset_render_progress, update_render_progress
 from backend.utils.font_parser import resolve_ass_font_name
 from backend.utils.ffmpeg_engine import (
     get_video_info,
@@ -185,39 +185,75 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
         f.write("\n".join(ass_content))
 
 def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequest):
-    ass_path = TEMP_DIR / "render_temp.ass"
-    generate_ass_script(video_path, caption_dicts, req.style, ass_path)
+    try:
+        update_render_progress(
+            percent=5.0,
+            status="Generating subtitle styles & ASS script...",
+            stage="Subtitles",
+            speed="1x",
+            eta="Calculating..."
+        )
+        ass_path = TEMP_DIR / "render_temp.ass"
+        generate_ass_script(video_path, caption_dicts, req.style, ass_path)
 
-    out_mp4_path = get_auto_versioned_path(video_path, ext=".mp4")
-    out_srt_path = out_mp4_path.with_suffix(".srt")
-    out_xml_path = out_mp4_path.with_suffix(".xml")
+        out_mp4_path = get_auto_versioned_path(video_path, ext=".mp4")
+        out_srt_path = out_mp4_path.with_suffix(".srt")
+        out_xml_path = out_mp4_path.with_suffix(".xml")
 
-    if req.export_srt:
-        generate_srt_file(caption_dicts, out_srt_path)
+        if req.export_srt:
+            update_render_progress(
+                percent=10.0,
+                status="Generating .SRT subtitle file...",
+                stage="Subtitles"
+            )
+            generate_srt_file(caption_dicts, out_srt_path)
 
-    if req.export_xml:
-        generate_premiere_xml(video_path, caption_dicts, out_xml_path)
+        if req.export_xml:
+            update_render_progress(
+                percent=15.0,
+                status="Generating Premiere Pro XML sequence...",
+                stage="Sequence XML"
+            )
+            generate_premiere_xml(video_path, caption_dicts, out_xml_path)
 
-    if req.export_mp4:
-        duration = get_video_info(video_path)["duration"]
-        render_ass_video(video_path, str(ass_path), out_mp4_path, duration)
+        if req.export_mp4:
+            duration = get_video_info(video_path)["duration"]
+            success = render_ass_video(video_path, str(ass_path), out_mp4_path, duration)
+            if not success:
+                return
+        else:
+            # If MP4 burn was not selected, complete task now
+            update_render_progress(
+                percent=100.0,
+                status="Export Completed Successfully",
+                stage="Done",
+                eta="0s"
+            )
 
-    dest_dir_str = req.google_drive_export_path or req.custom_output_dir
-    if dest_dir_str:
-        try:
-            dest_dir = Path(dest_dir_str).resolve()
-            dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_dir_str = req.google_drive_export_path or req.custom_output_dir
+        if dest_dir_str:
+            try:
+                dest_dir = Path(dest_dir_str).resolve()
+                dest_dir.mkdir(parents=True, exist_ok=True)
 
-            if req.export_mp4 and out_mp4_path.exists():
-                shutil.copy2(out_mp4_path, dest_dir / out_mp4_path.name)
+                if req.export_mp4 and out_mp4_path.exists():
+                    shutil.copy2(out_mp4_path, dest_dir / out_mp4_path.name)
 
-            if req.export_srt and out_srt_path.exists():
-                shutil.copy2(out_srt_path, dest_dir / out_srt_path.name)
+                if req.export_srt and out_srt_path.exists():
+                    shutil.copy2(out_srt_path, dest_dir / out_srt_path.name)
 
-            if req.export_xml and out_xml_path.exists():
-                shutil.copy2(out_xml_path, dest_dir / out_xml_path.name)
-        except Exception as e:
-            print(f"Warning: Failed to copy exports to custom/Drive destination path: {e}")
+                if req.export_xml and out_xml_path.exists():
+                    shutil.copy2(out_xml_path, dest_dir / out_xml_path.name)
+            except Exception as e:
+                print(f"Warning: Failed to copy exports to custom/Drive destination path: {e}")
+    except Exception as err:
+        print(f"Error in async_render_job: {err}")
+        update_render_progress(
+            percent=0.0,
+            status=f"Export failed: {err}",
+            stage="Failed",
+            error=str(err)
+        )
 
 @router.post("/render")
 def trigger_render(req: RenderRequest):
