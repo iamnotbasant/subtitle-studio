@@ -334,6 +334,10 @@ function initPropertiesListeners() {
 
     const activeSubInput = document.getElementById('activeSubTextInput');
     if (activeSubInput) {
+        activeSubInput.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+        });
+
         activeSubInput.addEventListener('input', (e) => {
             const val = e.target.value;
             const textBox = document.getElementById('subtitleTextBox');

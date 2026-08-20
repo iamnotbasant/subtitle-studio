@@ -1,26 +1,25 @@
-/* Premiere Properties Subtitle Studio - Hardware Accelerated Pro Timeline Stylesheet */
+/* Minimalist Dark Timeline Stylesheet */
 
 .timeline-container {
-    height: 135px;
-    background: linear-gradient(180deg, #18191d 0%, #111215 100%);
+    height: 125px;
+    background: #0d0d10;
     border-top: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     user-select: none;
     flex-shrink: 0;
-    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .timeline-toolbar {
-    height: 28px;
-    background: #151619;
+    height: 26px;
+    background: #131316;
     border-bottom: 1px solid var(--border-color);
-    padding: 0 12px;
+    padding: 0 10px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 500;
     color: var(--text-muted);
 }
@@ -28,39 +27,41 @@
 .timeline-tools-left {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .toolbar-label {
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.3px;
     color: var(--text-sub);
-    font-size: 10px;
+    font-size: 9.5px;
 }
 
 .zoom-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .zoom-controls input[type="range"] {
-    width: 80px;
-    accent-color: var(--accent-cyan);
+    width: 70px;
+    accent-color: #ffffff;
+    cursor: pointer;
 }
 
 #zoomVal {
     font-family: var(--font-mono);
-    color: var(--accent-cyan);
-    font-size: 10px;
-    min-width: 32px;
+    color: #ffffff;
+    font-size: 9.5px;
+    min-width: 28px;
 }
 
 .timeline-track-area {
     position: relative;
     flex: 1;
-    background: #0b0c0e;
+    min-height: 0;
+    background: #08080a;
     overflow-x: auto;
     overflow-y: hidden;
     transform: translate3d(0, 0, 0);
@@ -68,33 +69,32 @@
 
 /* TIME RULER */
 .time-ruler {
-    height: 20px;
-    background: #131418;
+    height: 18px;
+    background: #101014;
     border-bottom: 1px solid var(--border-color);
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     cursor: pointer;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .ruler-tick {
     position: absolute;
     bottom: 0;
     width: 1px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
 }
 
 .ruler-tick.major {
-    height: 10px;
-    background: var(--text-muted);
+    height: 8px;
+    background: rgba(255, 255, 255, 0.3);
 }
 
 .ruler-tick-label {
     position: absolute;
-    top: 2px;
-    font-size: 9.5px;
+    top: 1px;
+    font-size: 9px;
     font-family: var(--font-mono);
     color: var(--text-muted);
     transform: translateX(-50%);
@@ -104,56 +104,54 @@
 /* TRACK ROW */
 .track-row {
     position: absolute;
-    top: 24px;
+    top: 22px;
     left: 0;
-    height: 48px;
+    height: 44px;
     min-width: 100%;
 }
 
 .timeline-clip {
     position: absolute;
-    height: 40px;
-    background: linear-gradient(180deg, #0088ff 0%, #005bb5 100%);
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    height: 38px;
+    background: #27272a;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: var(--radius-sm);
-    top: 4px;
+    top: 3px;
     cursor: grab;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 8px;
+    padding: 0 6px;
     overflow: hidden;
     transform: translate3d(0, 0, 0);
     will-change: transform, left, width;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    transition: box-shadow var(--transition-fast);
+    transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .timeline-clip:hover {
-    border-color: rgba(255, 255, 255, 0.45);
+    border-color: rgba(255, 255, 255, 0.35);
+    background: #323238;
 }
 
 .timeline-clip:active {
     cursor: grabbing;
-    box-shadow: 0 0 16px var(--accent-glow);
 }
 
 .timeline-clip.active {
     border-color: #ffffff;
-    background: linear-gradient(180deg, #f43f5e 0%, #a855f7 100%);
-    box-shadow: 0 4px 18px var(--accent-glow-pink), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    background: #3f3f46;
+    box-shadow: 0 0 0 1px #ffffff;
 }
 
 .clip-text {
-    font-size: 10.5px;
-    font-weight: 600;
+    font-size: 10px;
+    font-weight: 500;
     color: #ffffff;
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
     pointer-events: none;
     letter-spacing: 0.2px;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 /* LEFT & RIGHT TRIM HANDLES */
@@ -161,15 +159,14 @@
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 7px;
-    background: rgba(255, 255, 255, 0.3);
+    width: 6px;
+    background: rgba(255, 255, 255, 0.2);
     cursor: ew-resize;
     transition: var(--transition-fast);
 }
 
 .trim-handle:hover {
-    background: var(--accent-green);
-    box-shadow: 0 0 8px var(--accent-green);
+    background: #ffffff;
 }
 
 .trim-handle.left-handle {
@@ -184,33 +181,32 @@
     border-bottom-right-radius: var(--radius-sm);
 }
 
-/* PLAYHEAD NEEDLE - GPU ACCELERATED */
+/* PLAYHEAD NEEDLE */
 .playhead {
     position: absolute;
     top: 0;
     bottom: 0;
     left: 0;
-    width: 2px;
-    background: var(--accent-green);
+    width: 1px;
+    background: #ffffff;
     z-index: 10;
     pointer-events: none;
     will-change: transform;
     transform: translate3d(0, 0, 0);
-    filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.8));
 }
 
 .playhead-head {
     position: absolute;
     top: 0;
-    left: -5px;
-    width: 12px;
-    height: 12px;
-    background: var(--accent-green);
+    left: -4px;
+    width: 9px;
+    height: 10px;
+    background: #ffffff;
     clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 
 .playhead-line {
-    width: 2px;
+    width: 1px;
     height: 100%;
-    background: var(--accent-green);
+    background: #ffffff;
 }

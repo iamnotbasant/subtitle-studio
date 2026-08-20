@@ -388,6 +388,17 @@ function renderCaptionsList() {
             }
         });
 
+        // Prevent Spacebar from triggering video playback while typing
+        textArea.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+        });
+        startInput.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+        });
+        endInput.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+        });
+
         textArea.addEventListener('input', (e) => {
             item.text = e.target.value;
             if (typeof updateLiveSubtitleOverlay === 'function') updateLiveSubtitleOverlay();
@@ -396,11 +407,13 @@ function renderCaptionsList() {
 
         splitBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (typeof soundEngine !== 'undefined') soundEngine.cut();
             splitCaptionLine(item.id);
         });
 
         delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (typeof soundEngine !== 'undefined') soundEngine.click(400, 0.03);
             deleteCaptionLine(item.id);
         });
 
