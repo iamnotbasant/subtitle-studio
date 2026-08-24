@@ -163,23 +163,47 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
     abs_x = round((play_res_x / 2.0) + (pp_pos_x * (play_res_x / ref_x)))
     abs_y = round((play_res_y / 2.0) + (pp_pos_y * (play_res_y / ref_y)))
 
-    for cap in captions:
+    # Sort captions chronologically by start time
+    sorted_captions = sorted(captions, key=lambda c: float(c.get("start", 0.0)))
+
+    # Calculate vertical spacing for overlapping lines (font size + margins/padding)
+    line_height = round(ass_font_size * 1.35 + (stroke_val * 2))
+    shift_direction = -1 if pp_pos_y >= 0 else 1  # Shift upwards if in bottom half, downwards if top
+
+    # Multi-tier overlap slot tracker: slot_index -> active_end_sec
+    active_slots = {}
+
+    for cap in sorted_captions:
         start_sec = max(0.0, float(cap.get("start", 0.0)))
         end_sec = max(start_sec + 0.05, float(cap.get("end", start_sec + 1.0)))
         start_t = format_ass_time(start_sec)
         end_t = format_ass_time(end_sec)
+
+        # Clear expired slots
+        expired = [s for s, e in active_slots.items() if e <= start_sec]
+        for s in expired:
+            del active_slots[s]
+
+        # Find first available slot (0 = baseline, 1 = shifted, etc.)
+        slot = 0
+        while slot in active_slots:
+            slot += 1
+        active_slots[slot] = end_sec
+
+        # Offset Y position for overlapping captions to prevent visual collisions
+        cap_y = abs_y + (slot * shift_direction * line_height)
         
         text = str(cap.get("text", "")).replace("\r\n", "\\N").replace("\n", "\\N")
 
         if style.allCaps:
             text = text.upper()
 
-        tags = [f"\\an5\\pos({abs_x},{abs_y})"]
+        tags = [f"\\an5\\pos({abs_x},{cap_y})"]
         if style.tracking != 0:
             tags.append(f"\\fsp{style.tracking}")
 
         tag_str = "{" + "".join(tags) + "}"
-        ass_content.append(f"Dialogue: 0,{start_t},{end_t},Default,,0,0,0,,{tag_str}{text}")
+        ass_content.append(f"Dialogue: {slot},{start_t},{end_t},Default,,0,0,0,,{tag_str}{text}")
 
     with open(ass_output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(ass_content))
@@ -290,7 +314,7 @@ def get_style_presets():
                 "primaryColor": "#FFDE00",
                 "strokeEnabled": True,
                 "strokeColor": "#000000",
-                "strokeWidth": 4,
+                "strokeWidth": 4.0,
                 "shadowEnabled": True
             },
             {
@@ -302,7 +326,19 @@ def get_style_presets():
                 "primaryColor": "#FFFFFF",
                 "strokeEnabled": True,
                 "strokeColor": "#000000",
-                "strokeWidth": 3
+                "strokeWidth": 3.0
+            },
+            {
+                "id": "preset_viral_green",
+                "name": "Viral Neon Green",
+                "fontFamily": "Poppins",
+                "fontStyle": "Bold",
+                "fontSize": 75,
+                "primaryColor": "#22C55E",
+                "strokeEnabled": True,
+                "strokeColor": "#000000",
+                "strokeWidth": 3.5,
+                "shadowEnabled": True
             },
             {
                 "id": "preset_neon_cyberpunk",
@@ -313,7 +349,7 @@ def get_style_presets():
                 "primaryColor": "#FF007F",
                 "strokeEnabled": True,
                 "strokeColor": "#00F3FF",
-                "strokeWidth": 3,
+                "strokeWidth": 3.0,
                 "shadowEnabled": True
             },
             {
@@ -327,6 +363,18 @@ def get_style_presets():
                 "bgColor": "#000000",
                 "bgOpacity": 0.65,
                 "bgPadding": 12
+            },
+            {
+                "id": "preset_cinematic_gold",
+                "name": "Cinematic Luxury Gold",
+                "fontFamily": "Montserrat",
+                "fontStyle": "Bold",
+                "fontSize": 72,
+                "primaryColor": "#FCD34D",
+                "strokeEnabled": True,
+                "strokeColor": "#000000",
+                "strokeWidth": 3.0,
+                "shadowEnabled": True
             }
         ]
     }

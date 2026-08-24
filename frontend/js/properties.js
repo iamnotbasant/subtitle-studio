@@ -109,6 +109,28 @@ function applyPresetStyle(presetKey) {
         styleState.bgOpacity = 0.65;
         styleState.bgPadding = 12;
         styleState.shadowEnabled = false;
+    } else if (presetKey === 'viral_green') {
+        styleState.fontFamily = 'Poppins';
+        styleState.fontStyle = 'Bold';
+        styleState.fontSize = 75;
+        styleState.primaryColor = '#22C55E';
+        styleState.strokeEnabled = true;
+        styleState.strokeColor = '#000000';
+        styleState.strokeWidth = 3.5;
+        styleState.bgEnabled = false;
+        styleState.shadowEnabled = true;
+        styleState.shadowColor = '#000000';
+    } else if (presetKey === 'cinematic_gold') {
+        styleState.fontFamily = 'Montserrat';
+        styleState.fontStyle = 'Bold';
+        styleState.fontSize = 72;
+        styleState.primaryColor = '#FCD34D';
+        styleState.strokeEnabled = true;
+        styleState.strokeColor = '#000000';
+        styleState.strokeWidth = 3.0;
+        styleState.bgEnabled = false;
+        styleState.shadowEnabled = true;
+        styleState.shadowColor = '#000000';
     }
 
     syncUiControlsWithState();
@@ -182,9 +204,9 @@ function requestApplyStyling() {
     }
 }
 
-function applyStyling() {
-    const { overlay, textBox, container, video } = getDomCache();
-    if (!overlay || !textBox || !container) return;
+function applyElementStyle(targetEl, slotIndex = 0) {
+    const { container, video } = getDomCache();
+    if (!targetEl || !container) return;
 
     // Detect Sequence Aspect Ratio (Default 1080x1920 for vertical video, 1920x1080 for horizontal)
     let refWidth = 1080.0;
@@ -205,18 +227,17 @@ function applyStyling() {
     // Font Size Scaling Math relative to Sequence Reference Height (1920px vertical / 1080px horizontal)
     const scaleFactorHeight = containerH / refHeight;
     const scaledFontSize = Math.round(styleState.fontSize * scaleFactorHeight);
-    textBox.style.fontSize = `${Math.max(12, scaledFontSize)}px`;
+    targetEl.style.fontSize = `${Math.max(12, scaledFontSize)}px`;
 
     // Ensure single horizontal line text display with proper whitespace handling
-    const currentText = textBox.innerText || "";
+    const currentText = targetEl.innerText || "";
     if (currentText.includes('\n')) {
-        textBox.style.whiteSpace = 'pre-wrap';
+        targetEl.style.whiteSpace = 'pre-wrap';
     } else {
-        textBox.style.whiteSpace = 'nowrap';
+        targetEl.style.whiteSpace = 'nowrap';
     }
 
-    // Exact Adobe Premiere Pro / Center Origin Transform Anchoring
-    // Ensures any subtitle text length stays 100% horizontally centered at all times
+    // Exact Adobe Premiere Pro / Center Origin Transform Anchoring with Collision Slot Offsets
     const scaleX = containerW / refWidth;
     const scaleY = containerH / refHeight;
     const posXVal = (styleState.posX !== null && !isNaN(styleState.posX)) ? styleState.posX : 0;
@@ -225,24 +246,27 @@ function applyStyling() {
     const offsetX = Math.round(posXVal * scaleX);
     const offsetY = Math.round(posYVal * scaleY);
 
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    textBox.style.position = 'absolute';
-    textBox.style.left = '50%';
-    textBox.style.top = '50%';
-    textBox.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+    const shiftDirection = posYVal >= 0 ? -1 : 1; // Shift upwards if in bottom half, downwards if in top
+    const scaledStroke = (styleState.strokeEnabled && styleState.strokeWidth > 0) ? Math.max(1, Math.round(styleState.strokeWidth * (containerH / 1080.0))) : 0;
+    const slotSpacing = Math.round(scaledFontSize * 1.35 + (scaledStroke * 2));
+    const finalOffsetY = offsetY + (slotIndex * shiftDirection * slotSpacing);
+
+    targetEl.style.position = 'absolute';
+    targetEl.style.left = '50%';
+    targetEl.style.top = '50%';
+    targetEl.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${finalOffsetY}px))`;
 
     // Typography & Paragraph Alignment
-    textBox.style.fontFamily = `"${styleState.fontFamily}", "Century Gothic", "Poppins", sans-serif`;
-    textBox.style.letterSpacing = `${styleState.tracking * scaleFactorHeight}px`;
-    textBox.style.lineHeight = `${styleState.leading}`;
-    textBox.style.textAlign = styleState.textAlign || 'center';
+    targetEl.style.fontFamily = `"${styleState.fontFamily}", "Century Gothic", "Poppins", sans-serif`;
+    targetEl.style.letterSpacing = `${styleState.tracking * scaleFactorHeight}px`;
+    targetEl.style.lineHeight = `${styleState.leading}`;
+    targetEl.style.textAlign = styleState.textAlign || 'center';
 
     // Fill Color
     if (styleState.fillEnabled) {
-        textBox.style.color = hexToRgba(styleState.primaryColor, styleState.primaryOpacity);
+        targetEl.style.color = hexToRgba(styleState.primaryColor, styleState.primaryOpacity);
     } else {
-        textBox.style.color = 'transparent';
+        targetEl.style.color = 'transparent';
     }
 
     // Faux Formatting & Font Styles
@@ -250,33 +274,32 @@ function applyStyling() {
     const isBoldStyle = styleState.bold || fontStyleLower === 'bold' || fontStyleLower === 'black';
     const isItalicStyle = styleState.italic || fontStyleLower === 'italic';
 
-    textBox.style.fontWeight = isBoldStyle ? (fontStyleLower === 'black' ? '900' : '700') : '400';
-    textBox.style.fontStyle = isItalicStyle ? 'italic' : 'normal';
-    textBox.style.textTransform = styleState.allCaps ? 'uppercase' : (styleState.smallCaps ? 'capitalize' : 'none');
+    targetEl.style.fontWeight = isBoldStyle ? (fontStyleLower === 'black' ? '900' : '700') : '400';
+    targetEl.style.fontStyle = isItalicStyle ? 'italic' : 'normal';
+    targetEl.style.textTransform = styleState.allCaps ? 'uppercase' : (styleState.smallCaps ? 'capitalize' : 'none');
 
     let textDecoration = [];
     if (styleState.underline) textDecoration.push('underline');
     if (styleState.strikethrough) textDecoration.push('line-through');
-    textBox.style.textDecoration = textDecoration.length > 0 ? textDecoration.join(' ') : 'none';
+    targetEl.style.textDecoration = textDecoration.length > 0 ? textDecoration.join(' ') : 'none';
 
     // Stroke / Webkit Text Stroke (Outer Stroke order)
     if (styleState.strokeEnabled && styleState.strokeWidth > 0) {
-        const scaledStroke = Math.max(1, Math.round(styleState.strokeWidth * (containerH / 1080.0)));
-        textBox.style.paintOrder = 'stroke fill';
-        textBox.style.webkitTextStroke = `${scaledStroke}px ${styleState.strokeColor}`;
+        targetEl.style.paintOrder = 'stroke fill';
+        targetEl.style.webkitTextStroke = `${scaledStroke}px ${styleState.strokeColor}`;
     } else {
-        textBox.style.webkitTextStroke = '0px transparent';
+        targetEl.style.webkitTextStroke = '0px transparent';
     }
 
     // Background Box
     if (styleState.bgEnabled && styleState.bgOpacity > 0) {
-        textBox.style.backgroundColor = hexToRgba(styleState.bgColor, styleState.bgOpacity);
+        targetEl.style.backgroundColor = hexToRgba(styleState.bgColor, styleState.bgOpacity);
         const scaledPadding = Math.round(styleState.bgPadding * scaleFactorHeight);
-        textBox.style.padding = `${scaledPadding}px`;
-        textBox.style.borderRadius = '4px';
+        targetEl.style.padding = `${scaledPadding}px`;
+        targetEl.style.borderRadius = '4px';
     } else {
-        textBox.style.backgroundColor = 'transparent';
-        textBox.style.padding = '0px';
+        targetEl.style.backgroundColor = 'transparent';
+        targetEl.style.padding = '0px';
     }
 
     // Drop Shadow (Exact match to Premiere Pro shadow status)
@@ -284,10 +307,28 @@ function applyStyling() {
         const shadowDist = styleState.shadowDistance * scaleFactorHeight;
         const shadowBlur = styleState.shadowBlur * scaleFactorHeight;
         const shadowRgba = hexToRgba(styleState.shadowColor, 0.7);
-        textBox.style.textShadow = `${shadowDist}px ${shadowDist}px ${shadowBlur}px ${shadowRgba}`;
+        targetEl.style.textShadow = `${shadowDist}px ${shadowDist}px ${shadowBlur}px ${shadowRgba}`;
     } else {
-        textBox.style.textShadow = 'none';
+        targetEl.style.textShadow = 'none';
     }
+}
+
+function applyStyling() {
+    const { overlay, textBox } = getDomCache();
+    if (!overlay || !textBox) return;
+
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    
+    // Apply style to base text box (Slot 0)
+    applyElementStyle(textBox, 0);
+
+    // Apply style to any multi-caption overlay elements
+    const extraBoxes = overlay.querySelectorAll('.multi-subtitle-item');
+    extraBoxes.forEach(box => {
+        const slot = parseInt(box.dataset.slot || "0");
+        applyElementStyle(box, slot);
+    });
 }
 
 function initAccordions() {

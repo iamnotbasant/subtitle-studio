@@ -5,9 +5,10 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Union, Optional, List, Dict
 from config import OUTPUT_DIR, TEMP_DIR, CUSTOM_FONTS_DIR, SYSTEM_FONTS_DIR, update_render_progress, reset_render_progress
 
-def escape_ffmpeg_filter_path(path_input: str or Path) -> str:
+def escape_ffmpeg_filter_path(path_input: Union[str, Path]) -> str:
     r"""
     Escapes file path string for FFmpeg video filter parameter (-vf subtitles='...').
     Converts backslashes to forward slashes, escapes colons (C:\ -> C\:) and special characters.
@@ -18,7 +19,7 @@ def escape_ffmpeg_filter_path(path_input: str or Path) -> str:
     p_str = p_str.replace("[", "\\[").replace("]", "\\]")
     return p_str
 
-def get_video_duration_secs(video_path: str or Path) -> float:
+def get_video_duration_secs(video_path: Union[str, Path]) -> float:
     """
     Uses ffprobe to obtain total video duration in seconds with robust path escaping.
     """
@@ -37,9 +38,28 @@ def get_video_duration_secs(video_path: str or Path) -> float:
         print(f"Error getting video duration for '{clean_path}': {e}")
         return 0.0
 
-def get_video_info(video_path: str or Path) -> dict:
+def check_has_audio(video_path: Union[str, Path]) -> bool:
     """
-    Retrieves video resolution, frame rate, and duration.
+    Checks if source video contains an active audio stream.
+    """
+    clean_path = str(Path(video_path).resolve())
+    cmd = [
+        "ffprobe",
+        "-v", "error",
+        "-select_streams", "a:0",
+        "-show_entries", "stream=codec_name",
+        "-of", "csv=p=0",
+        clean_path
+    ]
+    try:
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
+        return bool(res.stdout.strip())
+    except Exception:
+        return False
+
+def get_video_info(video_path: Union[str, Path]) -> dict:
+    """
+    Retrieves video resolution, frame rate, duration, and audio presence.
     """
     clean_path = str(Path(video_path).resolve())
     cmd = [
@@ -62,11 +82,12 @@ def get_video_info(video_path: str or Path) -> dict:
         else:
             fps = float(fps_str)
         duration = float(parts[3]) if len(parts) > 3 and parts[3] else get_video_duration_secs(clean_path)
-        return {"width": width, "height": height, "fps": fps, "duration": duration}
+        has_audio = check_has_audio(clean_path)
+        return {"width": width, "height": height, "fps": fps, "duration": duration, "has_audio": has_audio}
     except Exception:
-        return {"width": 1920, "height": 1080, "fps": 30.0, "duration": get_video_duration_secs(clean_path)}
+        return {"width": 1920, "height": 1080, "fps": 30.0, "duration": get_video_duration_secs(clean_path), "has_audio": False}
 
-def get_auto_versioned_path(base_name: str or Path, ext: str = ".mp4") -> Path:
+def get_auto_versioned_path(base_name: Union[str, Path], ext: str = ".mp4") -> Path:
     """
     Auto-increments file output path (e.g. video_v1.mp4, video_v2.mp4) if target exists.
     """
@@ -89,14 +110,15 @@ def generate_srt_file(captions: list, output_path: Path):
         hrs = int(seconds) // 3600
         return f"{hrs:02d}:{mins:02d}:{secs:02d},{millis:03d}"
 
+    sorted_caps = sorted(captions, key=lambda c: float(c.get("start", 0.0)))
     with open(output_path, "w", encoding="utf-8") as f:
-        for idx, cap in enumerate(captions, 1):
+        for idx, cap in enumerate(sorted_caps, 1):
             start_str = format_srt_time(cap.get("start", 0.0))
             end_str = format_srt_time(cap.get("end", 0.0))
             text = cap.get("text", "")
             f.write(f"{idx}\n{start_str} --> {end_str}\n{text}\n\n")
 
-def generate_premiere_xml(video_path: str or Path, captions: list, output_xml_path: Path):
+def generate_premiere_xml(video_path: Union[str, Path], captions: list, output_xml_path: Path):
     """
     Generates an Adobe Premiere Pro (.xml) sequence containing clip markers / subtitle tracks.
     """
@@ -131,7 +153,8 @@ def generate_premiere_xml(video_path: str or Path, captions: list, output_xml_pa
 
     # Track 2: Subtitle markers / clips
     v_track2 = ET.SubElement(video, "track")
-    for idx, cap in enumerate(captions, 1):
+    sorted_caps = sorted(captions, key=lambda c: float(c.get("start", 0.0)))
+    for idx, cap in enumerate(sorted_caps, 1):
         start_frame = int(cap.get("start", 0.0) * info["fps"])
         end_frame = int(cap.get("end", 0.0) * info["fps"])
         dur = max(1, end_frame - start_frame)
@@ -180,7 +203,7 @@ def parse_ffmpeg_timestamp(time_str: str) -> float:
         pass
     return 0.0
 
-def render_ass_video(video_path: str or Path, ass_path: str or Path, output_path: Path, duration: float) -> bool:
+def render_ass_video(video_path: Union[str, Path], ass_path: Union[str, Path], output_path: Path, duration: float) -> bool:
     """
     Executes an adaptive, high-performance subtitle burn FFmpeg render pipeline:
     - Auto-detects NVENC GPU acceleration or defaults smoothly to CPU libx264 Ultrafast.
@@ -193,45 +216,50 @@ def render_ass_video(video_path: str or Path, ass_path: str or Path, output_path
     info = get_video_info(clean_video_path)
     fps = info.get("fps") or 30.0
     total_frames = int(round((duration or info.get("duration") or 0.0) * fps))
+    has_audio = info.get("has_audio", True)
 
     has_gpu = check_nvenc_support()
+
+    # Build audio arguments based on whether audio track exists
+    audio_copy = ["-c:a", "copy"] if has_audio else ["-an"]
+    audio_aac = ["-c:a", "aac", "-b:a", "192k"] if has_audio else ["-an"]
 
     if has_gpu:
         stages = [
             {
-                "name": "GPU NVENC (Fast + Stream Copy Audio)",
-                "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
+                "name": "GPU NVENC (Fast + Audio Sync)",
+                "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_copy
             },
             {
-                "name": "GPU NVENC (Fast + AAC Audio Re-encode)",
-                "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+                "name": "GPU NVENC (Fast + AAC Audio)",
+                "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
             },
             {
-                "name": "CPU libx264 (Ultrafast + Stream Copy Audio)",
-                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
+                "name": "CPU libx264 (Ultrafast + Audio Copy)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_copy
             },
             {
-                "name": "CPU libx264 (Ultrafast + AAC Audio Re-encode)",
-                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+                "name": "CPU libx264 (Ultrafast + AAC Audio)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
             }
         ]
     else:
         stages = [
             {
-                "name": "CPU libx264 (Ultrafast + Stream Copy Audio)",
-                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "copy"]
+                "name": "CPU libx264 (Ultrafast + Stream Copy)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_copy
             },
             {
-                "name": "CPU libx264 (Ultrafast + AAC Audio Re-encode)",
-                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+                "name": "CPU libx264 (Ultrafast + AAC Audio)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
             },
             {
                 "name": "CPU libx264 (Veryfast + Safe Pixel Format)",
-                "args": ["-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "192k"]
+                "args": ["-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
             },
             {
                 "name": "CPU libx264 (High Compatibility Baseline)",
-                "args": ["-c:v", "libx264", "-preset", "fast", "-profile:v", "baseline", "-level", "3.0", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'", "-c:a", "aac", "-b:a", "128k"]
+                "args": ["-c:v", "libx264", "-preset", "fast", "-profile:v", "baseline", "-level", "3.0", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
             }
         ]
 

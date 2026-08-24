@@ -1,6 +1,6 @@
 /**
- * Hardware-Accelerated Interactive Timeline Engine v8.1.0
- * Smooth Zoom, Interactive Playhead Scrubbing, Clip Dragging, Trimming & Real-time Auto-Scrolling
+ * Hardware-Accelerated Interactive Timeline Engine v8.2.0
+ * Multi-Lane Overlap Layout, Anchored Smooth Zooming, Sub-Frame Trimming & Scrubbing
  */
 
 let zoomScale = 100;
@@ -18,13 +18,13 @@ let cachedTimecodeNode = null;
 let cachedVideoNode = null;
 
 function secondsToPixels(sec) {
-    // 100% zoom = 40px per second
-    const pps = (zoomScale / 100.0) * 40.0;
+    // 100% zoom = 45px per second
+    const pps = (zoomScale / 100.0) * 45.0;
     return sec * pps;
 }
 
 function pixelsToSeconds(px) {
-    const pps = (zoomScale / 100.0) * 40.0;
+    const pps = (zoomScale / 100.0) * 45.0;
     return pps > 0 ? px / pps : 0;
 }
 
@@ -35,50 +35,120 @@ function getPlayheadNodes() {
     return { playhead: cachedPlayheadNode, timecode: cachedTimecodeNode, video: cachedVideoNode };
 }
 
+function formatRulerTime(sec) {
+    if (sec >= 60) {
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        const ms = Math.round((sec - Math.floor(sec)) * 10);
+        return ms > 0 ? `${m}:${String(s).padStart(2, '0')}.${ms}` : `${m}:${String(s).padStart(2, '0')}`;
+    }
+    const dec = Number.isInteger(sec) ? `${sec}s` : `${sec.toFixed(1)}s`;
+    return dec;
+}
+
 function renderTimelineTrack() {
     const track = document.getElementById('subtitleTrack');
     const ruler = document.getElementById('timeRuler');
     const { video } = getPlayheadNodes();
     if (!track || !ruler) return;
 
-    const totalDuration = (video && video.duration && !isNaN(video.duration)) ? video.duration : 60;
-    const totalWidthPx = secondsToPixels(totalDuration);
+    const totalDuration = (video && video.duration && !isNaN(video.duration) && video.duration > 0) ? video.duration : 60;
+    const totalWidthPx = Math.max(secondsToPixels(totalDuration) + 200, 800);
 
-    track.style.width = `${Math.max(totalWidthPx, 800)}px`;
-    ruler.style.width = `${Math.max(totalWidthPx, 800)}px`;
+    track.style.width = `${totalWidthPx}px`;
+    ruler.style.width = `${totalWidthPx}px`;
 
+    // 1. Adaptive Ruler Rendering
     ruler.innerHTML = '';
-    const stepSec = zoomScale > 300 ? 1 : (zoomScale > 150 ? 2 : (zoomScale > 80 ? 5 : 10));
-    for (let sec = 0; sec <= totalDuration; sec += stepSec) {
-        const leftPx = secondsToPixels(sec);
-        const tick = document.createElement('div');
-        tick.className = 'ruler-tick major';
-        tick.style.left = `${leftPx}px`;
-
-        const label = document.createElement('div');
-        label.className = 'ruler-tick-label';
-        label.style.left = `${leftPx}px`;
-        label.textContent = `${sec}s`;
-
-        ruler.appendChild(tick);
-        ruler.appendChild(label);
+    let majorStep = 10;
+    let minorStep = 2;
+    if (zoomScale >= 600) {
+        majorStep = 0.5;
+        minorStep = 0.1;
+    } else if (zoomScale >= 300) {
+        majorStep = 1.0;
+        minorStep = 0.25;
+    } else if (zoomScale >= 160) {
+        majorStep = 2.0;
+        minorStep = 0.5;
+    } else if (zoomScale >= 80) {
+        majorStep = 5.0;
+        minorStep = 1.0;
+    } else if (zoomScale >= 45) {
+        majorStep = 10.0;
+        minorStep = 2.0;
+    } else {
+        majorStep = 30.0;
+        minorStep = 5.0;
     }
 
+    const fragmentRuler = document.createDocumentFragment();
+    for (let sec = 0; sec <= totalDuration + majorStep; sec = parseFloat((sec + minorStep).toFixed(3))) {
+        const isMajor = Math.abs(sec % majorStep) < 0.001 || Math.abs((sec % majorStep) - majorStep) < 0.001;
+        const leftPx = secondsToPixels(sec);
+
+        const tick = document.createElement('div');
+        tick.className = `ruler-tick ${isMajor ? 'major' : 'minor'}`;
+        tick.style.left = `${leftPx}px`;
+        fragmentRuler.appendChild(tick);
+
+        if (isMajor) {
+            const label = document.createElement('div');
+            label.className = 'ruler-tick-label';
+            label.style.left = `${leftPx}px`;
+            label.textContent = formatRulerTime(sec);
+            fragmentRuler.appendChild(label);
+        }
+    }
+    ruler.appendChild(fragmentRuler);
+
+    // 2. Multi-Lane Overlap Layout Calculation
+    const sortedCaps = [...captionsData].sort((a, b) => a.start - b.start);
+    const laneEnds = [];
+    const clipLanes = new Map();
+
+    sortedCaps.forEach(cap => {
+        let lane = 0;
+        while (lane < laneEnds.length && laneEnds[lane] > cap.start + 0.02) {
+            lane++;
+        }
+        laneEnds[lane] = cap.end;
+        clipLanes.set(cap.id, lane);
+    });
+
+    const maxLanes = Math.max(1, laneEnds.length);
+    const laneHeight = 36;
+    track.style.height = `${Math.max(48, maxLanes * laneHeight + 10)}px`;
+
+    // 3. Render Clips across sub-lanes
     track.innerHTML = '';
-    captionsData.forEach((item) => {
+    const fragmentClips = document.createDocumentFragment();
+
+    captionsData.forEach((item, index) => {
+        const laneIndex = clipLanes.get(item.id) || 0;
         const clip = document.createElement('div');
-        clip.className = `timeline-clip ${item.id === activeCaptionId ? 'active' : ''}`;
+        clip.className = `timeline-clip ${item.id === activeCaptionId ? 'active' : ''} ${laneIndex > 0 ? 'lane-offset' : ''}`;
         clip.dataset.id = item.id;
 
         const leftPx = secondsToPixels(item.start);
-        const widthPx = Math.max(20, secondsToPixels(item.end - item.start));
+        const widthPx = Math.max(22, secondsToPixels(item.end - item.start));
+        const topPx = 4 + (laneIndex * laneHeight);
 
         clip.style.left = `${leftPx}px`;
         clip.style.width = `${widthPx}px`;
+        clip.style.top = `${topPx}px`;
+        clip.style.height = `${laneHeight - 4}px`;
+
+        if (laneIndex > 0) {
+            clip.classList.add('overlap-lane-clip');
+        }
 
         clip.innerHTML = `
             <div class="trim-handle left-handle" data-id="${item.id}" data-edge="left" title="Drag to trim start time"></div>
-            <div class="clip-text">${item.text}</div>
+            <div class="clip-content">
+                <span class="clip-idx-tag">#${index + 1}</span>
+                <span class="clip-text">${item.text || "(empty)"}</span>
+            </div>
             <div class="trim-handle right-handle" data-id="${item.id}" data-edge="right" title="Drag to trim end time"></div>
         `;
 
@@ -101,17 +171,20 @@ function renderTimelineTrack() {
         // Context Menu for Cut / Delete
         clip.addEventListener('contextmenu', (e) => {
             e.preventDefault();
-            const action = prompt(`Clip Action for "${item.text}":\n1: Split / Cut Line\n2: Delete Clip\n(Type 1 or 2):`, "1");
+            const action = prompt(`Subtitle #${index + 1} Options:\n1: Split / Cut Line\n2: Delete Line\n3: Insert Line After`, "1");
             if (action === "1") {
                 splitCaptionLine(item.id);
             } else if (action === "2") {
                 deleteCaptionLine(item.id);
+            } else if (action === "3") {
+                addCaptionLine(item.id);
             }
         });
 
-        track.appendChild(clip);
+        fragmentClips.appendChild(clip);
     });
 
+    track.appendChild(fragmentClips);
     updatePlayheadPosition();
 }
 
@@ -135,7 +208,7 @@ function updatePlayheadPosition() {
     if (trackArea && video && !video.paused && !isUserActive) {
         const scrollLeft = trackArea.scrollLeft;
         const viewWidth = trackArea.clientWidth;
-        if (leftPx > scrollLeft + viewWidth - 50 || leftPx < scrollLeft) {
+        if (leftPx > scrollLeft + viewWidth - 60 || leftPx < scrollLeft) {
             trackArea.scrollLeft = Math.max(0, leftPx - (viewWidth / 3));
         }
     }
@@ -166,19 +239,39 @@ function seekTimelineFromMouseEvent(e) {
     if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
 }
 
+function setZoomScaleWithAnchor(newScale, anchorTime = null) {
+    const trackArea = document.getElementById('timelineTrackArea');
+    const { video } = getPlayheadNodes();
+    const zoomInput = document.getElementById('timelineZoom');
+    const zoomVal = document.getElementById('zoomVal');
+
+    const targetTime = (anchorTime !== null) ? anchorTime : (video ? (video.currentTime || 0) : 0);
+    const viewWidth = trackArea ? trackArea.clientWidth : 800;
+
+    zoomScale = Math.max(30, Math.min(1000, newScale));
+    if (zoomInput) zoomInput.value = zoomScale;
+    if (zoomVal) zoomVal.textContent = `${zoomScale}%`;
+
+    renderTimelineTrack();
+
+    if (trackArea) {
+        const targetPx = secondsToPixels(targetTime);
+        trackArea.scrollLeft = Math.max(0, targetPx - (viewWidth / 2));
+    }
+}
+
 function initTimelineEvents() {
     const zoomInput = document.getElementById('timelineZoom');
     const zoomVal = document.getElementById('zoomVal');
     const ruler = document.getElementById('timeRuler');
     const trackArea = document.getElementById('timelineTrackArea');
-    const subtitleTrack = document.getElementById('subtitleTrack');
     const { video } = getPlayheadNodes();
 
     if (zoomInput) {
         zoomInput.addEventListener('input', (e) => {
-            zoomScale = parseInt(e.target.value);
-            if (zoomVal) zoomVal.textContent = `${zoomScale}%`;
-            renderTimelineTrack();
+            const targetVal = parseInt(e.target.value);
+            const { video: vid } = getPlayheadNodes();
+            setZoomScaleWithAnchor(targetVal, vid ? vid.currentTime : 0);
         });
     }
 
@@ -188,16 +281,24 @@ function initTimelineEvents() {
             lastUserTimelineInteractionTime = Date.now();
         }, { passive: true });
 
-        // Wheel event: Ctrl/Cmd = Zoom, Normal vertical/horizontal wheel = Smooth Horizontal Scroll
+        // Wheel event: Ctrl/Cmd = Anchor-centered Smooth Zoom, Normal Wheel = Smooth Horizontal Scroll
         trackArea.addEventListener('wheel', (e) => {
             lastUserTimelineInteractionTime = Date.now();
             if (e.ctrlKey || e.metaKey) {
                 e.preventDefault();
-                const delta = e.deltaY > 0 ? -15 : 15;
-                zoomScale = Math.max(50, Math.min(1000, zoomScale + delta));
+                const rect = trackArea.getBoundingClientRect();
+                const mouseOffsetPx = e.clientX - rect.left;
+                const timeUnderCursor = pixelsToSeconds(trackArea.scrollLeft + mouseOffsetPx);
+
+                const delta = e.deltaY > 0 ? -18 : 18;
+                zoomScale = Math.max(30, Math.min(1000, zoomScale + delta));
                 if (zoomInput) zoomInput.value = zoomScale;
                 if (zoomVal) zoomVal.textContent = `${zoomScale}%`;
+
                 renderTimelineTrack();
+
+                const newScrollLeft = secondsToPixels(timeUnderCursor) - mouseOffsetPx;
+                trackArea.scrollLeft = Math.max(0, newScrollLeft);
             } else {
                 // Smooth horizontal scrolling on mouse wheel
                 e.preventDefault();
@@ -215,7 +316,7 @@ function initTimelineEvents() {
             const rect = trackArea.getBoundingClientRect();
             if (e.clientY > rect.bottom - 16) {
                 lastUserTimelineInteractionTime = Date.now();
-                return; // User is clicking or dragging the scrollbar! Do not jump playhead.
+                return; // User is interacting with scrollbar
             }
             isScrubbingTimeline = true;
             lastUserTimelineInteractionTime = Date.now();
@@ -266,19 +367,22 @@ function initTimelineEvents() {
             requestAnimationFrame(() => {
                 renderTimelineTrack();
                 renderCaptionsList();
+                if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
                 timelineMoveRaf = false;
             });
         }
     });
 
     window.addEventListener('mouseup', () => {
-        isScrubbingTimeline = false;
         if (isDraggingClip || isTrimmingClip) {
-            isDraggingClip = false;
-            isTrimmingClip = false;
-            currentDraggedClipId = null;
-            currentTrimEdge = null;
+            if (typeof sortCaptionsChronologically === 'function') sortCaptionsChronologically();
+            renderCaptionsList();
         }
+        isScrubbingTimeline = false;
+        isDraggingClip = false;
+        isTrimmingClip = false;
+        currentDraggedClipId = null;
+        currentTrimEdge = null;
     });
 }
 

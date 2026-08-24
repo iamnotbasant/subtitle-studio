@@ -611,6 +611,22 @@ function initHotkeys() {
             return;
         }
 
+        // ? or Shift + /: Toggle Shortcuts Modal
+        if (e.key === '?' || (e.shiftKey && e.code === 'Slash')) {
+            e.preventDefault();
+            toggleShortcutsModal();
+            return;
+        }
+
+        // Delete: Delete Active Caption Line
+        if (e.code === 'Delete' && typeof activeCaptionId !== 'undefined' && activeCaptionId) {
+            e.preventDefault();
+            if (typeof deleteCaptionLine === 'function') {
+                deleteCaptionLine(activeCaptionId);
+            }
+            return;
+        }
+
         // K or C: Cut / Split Caption at Playhead
         if (e.code === 'KeyK' || e.code === 'KeyC') {
             e.preventDefault();
@@ -642,6 +658,85 @@ function initHotkeys() {
             video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
             updatePlayerScrubber();
             updateTimeReadouts();
+        }
+    });
+}
+
+function openShortcutsModal() {
+    const modal = document.getElementById('shortcutsModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeShortcutsModal() {
+    const modal = document.getElementById('shortcutsModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function toggleShortcutsModal() {
+    const modal = document.getElementById('shortcutsModal');
+    if (modal) {
+        modal.style.display = modal.style.display === 'none' || !modal.style.display ? 'flex' : 'none';
+    }
+}
+
+function initDragAndDrop() {
+    const wrapper = document.getElementById('viewportWrapper');
+    const overlay = document.getElementById('dragDropOverlay');
+    if (!wrapper || !overlay) return;
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        wrapper.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            overlay.style.display = 'flex';
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        wrapper.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            overlay.style.display = 'none';
+        }, false);
+    });
+
+    wrapper.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+
+        const file = files[0];
+        const ext = file.name.split('.').pop().toLowerCase();
+
+        if (['mp4', 'mov', 'mkv', 'webm', 'avi'].includes(ext)) {
+            const blobUrl = URL.createObjectURL(file);
+            const video = document.getElementById('mainVideoPlayer');
+            const videoInput = document.getElementById('videoPathInput');
+            if (videoInput) videoInput.value = file.name;
+            currentLoadedVideoPath = file.name;
+            if (video) {
+                video.src = blobUrl;
+                video.load();
+                video.onloadedmetadata = () => {
+                    logExec(`Loaded dropped video directly: ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`, "success");
+                    soundEngine.success();
+                    updateTimeReadouts();
+                    if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
+                    if (typeof updatePlayheadPosition === 'function') updatePlayheadPosition();
+                    if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
+                };
+            }
+        } else if (ext === 'srt') {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                captionsData = parseSRT(evt.target.result);
+                renderCaptionsList();
+                if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
+                logExec(`Imported ${captionsData.length} subtitle lines from dropped file ${file.name}`, "success");
+                soundEngine.success();
+            };
+            reader.readAsText(file);
+        } else {
+            logExec(`Unsupported dropped file format: .${ext}. Please drop video or .srt files.`, "warn");
         }
     });
 }
@@ -704,36 +799,82 @@ function toggleFullscreen() {
     }
 }
 
-// ==========================================
-// 📺 LIVE SUBTITLE & ACTIVE CAPTION SYNC
-// ==========================================
 function requestUpdateLiveSubtitleOverlay() {
     const video = document.getElementById('mainVideoPlayer');
     const textBox = document.getElementById('subtitleTextBox');
     const activeSubInput = document.getElementById('activeSubTextInput');
-    if (!video || !textBox) return;
+    const overlay = document.getElementById('subtitleOverlay');
+    if (!video || !textBox || !overlay) return;
+
+    if (!isSubtitlesVisible) {
+        textBox.style.display = 'none';
+        const extraBoxes = overlay.querySelectorAll('.multi-subtitle-item');
+        extraBoxes.forEach(b => b.remove());
+        return;
+    }
 
     const currTime = video.currentTime || 0;
-    const activeCap = (typeof getActiveCaptionForTime === 'function') ? getActiveCaptionForTime(currTime) : null;
+    const activeCaps = (typeof getActiveCaptionsForTime === 'function') 
+        ? getActiveCaptionsForTime(currTime) 
+        : ((typeof getActiveCaptionForTime === 'function') ? [getActiveCaptionForTime(currTime)].filter(Boolean) : []);
 
-    if (activeCap) {
+    if (activeCaps.length > 0) {
+        const primaryCap = activeCaps[0];
+
         if (textBox.contentEditable !== "true") {
-            if (textBox.innerText !== activeCap.text) {
-                textBox.innerText = activeCap.text;
+            if (textBox.innerText !== primaryCap.text) {
+                textBox.innerText = primaryCap.text;
             }
             textBox.style.display = 'block';
+            textBox.dataset.id = primaryCap.id;
         }
-        if (activeSubInput && document.activeElement !== activeSubInput && activeSubInput.value !== activeCap.text) {
-            activeSubInput.value = activeCap.text;
+
+        if (activeSubInput && document.activeElement !== activeSubInput && activeSubInput.value !== primaryCap.text) {
+            activeSubInput.value = primaryCap.text;
         }
-        if (typeof setActiveCaption === 'function') {
-            setActiveCaption(activeCap.id);
+
+        if (typeof setActiveCaption === 'function' && (!activeCaptionId || !activeCaps.some(c => c.id === activeCaptionId))) {
+            setActiveCaption(primaryCap.id);
+        }
+
+        // Render additional overlapping captions in vertical offset tiers
+        const existingExtras = overlay.querySelectorAll('.multi-subtitle-item');
+        const neededCount = activeCaps.length - 1;
+
+        // Clean up excess items
+        for (let i = neededCount; i < existingExtras.length; i++) {
+            existingExtras[i].remove();
+        }
+
+        for (let i = 1; i < activeCaps.length; i++) {
+            const cap = activeCaps[i];
+            let itemEl = overlay.querySelector(`.multi-subtitle-item[data-slot="${i}"]`);
+            if (!itemEl) {
+                itemEl = document.createElement('div');
+                itemEl.className = 'subtitle-text-box multi-subtitle-item';
+                itemEl.dataset.slot = i;
+                overlay.appendChild(itemEl);
+            }
+            if (itemEl.innerText !== cap.text) {
+                itemEl.innerText = cap.text;
+            }
+            itemEl.dataset.id = cap.id;
+            itemEl.style.display = 'block';
+            if (typeof applyElementStyle === 'function') {
+                applyElementStyle(itemEl, i);
+            }
+        }
+
+        if (typeof applyStyling === 'function') {
+            applyStyling();
         }
     } else {
         if (textBox.contentEditable !== "true") {
             textBox.innerText = '';
             textBox.style.display = 'none';
         }
+        const extraBoxes = overlay.querySelectorAll('.multi-subtitle-item');
+        extraBoxes.forEach(b => b.remove());
     }
 }
 
@@ -1047,9 +1188,15 @@ function initAppListeners() {
         }
     }
 
+    const btnShortcuts = document.getElementById('btnShortcutsModal');
+    const btnCloseShortcuts = document.getElementById('btnCloseShortcuts');
+    if (btnShortcuts) btnShortcuts.addEventListener('click', openShortcutsModal);
+    if (btnCloseShortcuts) btnCloseShortcuts.addEventListener('click', closeShortcutsModal);
+
     renderCaptionsList();
     initOnScreenEditing();
     initHotkeys();
+    initDragAndDrop();
     loadAvailableFonts();
 }
 

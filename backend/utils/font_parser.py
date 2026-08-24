@@ -6,6 +6,7 @@ import subprocess
 import urllib.request
 from urllib.error import HTTPError, URLError
 from pathlib import Path
+from typing import Union, Optional, List, Dict
 from fontTools.ttLib import TTFont
 from config import CUSTOM_FONTS_DIR, SYSTEM_FONTS_DIR
 
@@ -208,7 +209,7 @@ def extract_font_names(file_path: Path):
             "error": str(e)
         }
 
-def scan_and_register_font(file_path: str or Path):
+def scan_and_register_font(file_path: Union[str, Path]):
     """
     Parses a single font file and registers all its name variants into FONT_METADATA_MAP.
     """

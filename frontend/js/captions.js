@@ -302,7 +302,7 @@ function renderCaptionsList() {
                 <div class="empty-title">No Subtitles Yet</div>
                 <div class="empty-desc">Auto-transcribe speech with AI, import an .SRT file, or create custom captions.</div>
                 <div class="empty-actions">
-                    <button onclick="document.getElementById('btnAiCaptions').click()" class="btn-sm btn-glow-purple">
+                    <button onclick="autoGenerateAiCaptions()" class="btn-sm btn-glow-purple">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                         AI Transcribe
                     </button>
@@ -310,7 +310,7 @@ function renderCaptionsList() {
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" x2="12" y1="18" y2="12"/><line x1="9" x2="15" y1="15" y2="15"/></svg>
                         Import .SRT
                     </button>
-                    <button onclick="addNewCaptionLine()" class="btn-sm btn-accent">
+                    <button onclick="addCaptionLine()" class="btn-sm btn-accent">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
                         Add Caption
                     </button>
@@ -338,13 +338,16 @@ function renderCaptionsList() {
 
         card.innerHTML = `
             <div class="card-header-row">
-                <span>#${index + 1}</span>
+                <span class="card-index-badge">#${index + 1}</span>
                 <div class="timestamp-inputs">
                     <input type="text" class="time-input start-time" value="${item.start.toFixed(2)}" data-id="${item.id}">
-                    <span style="color:var(--text-muted);font-size:10px;">➔</span>
+                    <span class="time-arrow">➔</span>
                     <input type="text" class="time-input end-time" value="${item.end.toFixed(2)}" data-id="${item.id}">
                 </div>
                 <div class="card-actions-right">
+                    <button class="card-add-below-btn" data-id="${item.id}" title="Insert subtitle below (#${index + 2})">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
                     <button class="card-split-btn" data-id="${item.id}" title="Split / Cut Line">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" x2="8.12" y1="4" y2="15.88"/><line x1="14.47" x2="20" y1="14.48" y2="20"/><line x1="8.12" x2="12" y1="8.12" y2="12"/></svg>
                     </button>
@@ -353,11 +356,11 @@ function renderCaptionsList() {
                     </button>
                 </div>
             </div>
-            <textarea class="caption-text-area" data-id="${item.id}">${item.text}</textarea>
+            <textarea class="caption-text-area" data-id="${item.id}" placeholder="Enter subtitle text...">${item.text}</textarea>
         `;
 
         card.addEventListener('click', (e) => {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && !e.target.closest('button')) {
                 setActiveCaption(item.id);
                 const video = document.getElementById('mainVideoPlayer');
                 if (video) video.currentTime = item.start;
@@ -367,6 +370,7 @@ function renderCaptionsList() {
         const startInput = card.querySelector('.start-time');
         const endInput = card.querySelector('.end-time');
         const textArea = card.querySelector('.caption-text-area');
+        const addBelowBtn = card.querySelector('.card-add-below-btn');
         const splitBtn = card.querySelector('.card-split-btn');
         const delBtn = card.querySelector('.card-delete-btn');
 
@@ -375,7 +379,9 @@ function renderCaptionsList() {
             const val = parseFloat(e.target.value);
             if (!isNaN(val)) {
                 item.start = Math.max(0, val);
+                sortCaptionsChronologically();
                 if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
+                if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
             }
         });
 
@@ -385,6 +391,7 @@ function renderCaptionsList() {
             if (!isNaN(val)) {
                 item.end = Math.max(item.start + 0.1, val);
                 if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
+                if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
             }
         });
 
@@ -401,8 +408,14 @@ function renderCaptionsList() {
 
         textArea.addEventListener('input', (e) => {
             item.text = e.target.value;
-            if (typeof updateLiveSubtitleOverlay === 'function') updateLiveSubtitleOverlay();
+            if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
             if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
+        });
+
+        addBelowBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (typeof soundEngine !== 'undefined') soundEngine.pop();
+            addCaptionLine(item.id);
         });
 
         splitBtn.addEventListener('click', (e) => {
@@ -419,6 +432,10 @@ function renderCaptionsList() {
 
         container.appendChild(card);
     });
+}
+
+function sortCaptionsChronologically() {
+    captionsData.sort((a, b) => a.start - b.start);
 }
 
 function setActiveCaption(id) {
@@ -450,26 +467,165 @@ function deleteCaptionLine(id) {
     if (activeCaptionId === id) activeCaptionId = null;
     renderCaptionsList();
     if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
+    if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
     logExec(`Deleted caption line.`, 'warn');
 }
 
-function addCaptionLine() {
+function addCaptionLine(afterId = null) {
     pushHistoryState();
     const video = document.getElementById('mainVideoPlayer');
-    const currTime = video ? video.currentTime : 0;
+    const currTime = video ? (video.currentTime || 0) : 0;
+    
+    let targetIdx = -1;
+    let newStart = 0;
+    let newEnd = 0;
+
+    const targetId = afterId || activeCaptionId;
+    if (targetId) {
+        targetIdx = captionsData.findIndex(c => c.id === targetId);
+    }
+
+    if (targetIdx !== -1) {
+        // Insert right after the targeted/active caption
+        const prevCap = captionsData[targetIdx];
+        newStart = parseFloat((prevCap.end + 0.05).toFixed(2));
+        newEnd = parseFloat((newStart + 2.5).toFixed(2));
+    } else if (captionsData.length > 0) {
+        // Insert chronologically based on current playhead time
+        targetIdx = captionsData.findIndex(c => c.start > currTime);
+        if (targetIdx === -1) {
+            // Place after the last caption
+            const lastCap = captionsData[captionsData.length - 1];
+            newStart = Math.max(parseFloat(currTime.toFixed(2)), parseFloat((lastCap.end + 0.05).toFixed(2)));
+            newEnd = parseFloat((newStart + 2.5).toFixed(2));
+            targetIdx = captionsData.length;
+        } else {
+            newStart = parseFloat(currTime.toFixed(2));
+            newEnd = parseFloat((newStart + 2.5).toFixed(2));
+        }
+    } else {
+        newStart = parseFloat(currTime.toFixed(2));
+        newEnd = parseFloat((newStart + 2.5).toFixed(2));
+        targetIdx = 0;
+    }
+
     const newCap = {
-        id: `cap_${Date.now()}`,
-        start: parseFloat(currTime.toFixed(2)),
-        end: parseFloat((currTime + 3.0).toFixed(2)),
+        id: `cap_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        start: newStart,
+        end: newEnd,
         text: "New subtitle text line"
     };
-    captionsData.push(newCap);
+
+    if (targetIdx >= 0 && targetIdx <= captionsData.length) {
+        captionsData.splice(targetIdx + (afterId || activeCaptionId ? 1 : 0), 0, newCap);
+    } else {
+        captionsData.push(newCap);
+    }
+
     renderCaptionsList();
     setActiveCaption(newCap.id);
     if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
-    logExec(`Added new caption line at ${currTime.toFixed(2)}s.`, 'info');
+    if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
+    
+    // Smoothly scroll the newly created card into view
+    setTimeout(() => {
+        const newCard = document.getElementById(`caption-card-${newCap.id}`);
+        if (newCard) {
+            newCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            const ta = newCard.querySelector('.caption-text-area');
+            if (ta) ta.focus();
+        }
+    }, 50);
+
+    logExec(`Inserted new subtitle line at ${newStart.toFixed(2)}s (Index #${captionsData.findIndex(c => c.id === newCap.id) + 1}).`, 'info');
 }
 
 function getActiveCaptionForTime(currentTime) {
     return captionsData.find(c => currentTime >= c.start && currentTime <= c.end);
 }
+
+function getActiveCaptionsForTime(currentTime) {
+    return captionsData.filter(c => currentTime >= c.start && currentTime <= c.end);
+}
+
+// ==========================================
+// 🔍 FIND & REPLACE AND TEXT CASE TRANSFORMS
+// ==========================================
+function executeFindAndReplace(findText, replaceText) {
+    if (!findText) {
+        logExec("Please enter text to find.", "warn");
+        return;
+    }
+
+    pushHistoryState();
+    let replaceCount = 0;
+    captionsData.forEach(c => {
+        if (c.text && c.text.toLowerCase().includes(findText.toLowerCase())) {
+            const regex = new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            const newText = c.text.replace(regex, replaceText);
+            if (newText !== c.text) {
+                c.text = newText;
+                replaceCount++;
+            }
+        }
+    });
+
+    renderCaptionsList();
+    if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
+    if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
+    logExec(`Replaced occurrences across ${replaceCount} subtitle lines.`, "success");
+}
+
+function convertAllCaptionsCase(mode) {
+    if (!captionsData || captionsData.length === 0) return;
+    pushHistoryState();
+
+    captionsData.forEach(c => {
+        if (!c.text) return;
+        if (mode === 'upper') {
+            c.text = c.text.toUpperCase();
+        } else if (mode === 'lower') {
+            c.text = c.text.toLowerCase();
+        } else if (mode === 'title') {
+            c.text = c.text.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+        }
+    });
+
+    renderCaptionsList();
+    if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
+    if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
+    logExec(`Converted all subtitle text to ${mode.toUpperCase()} case.`, "info");
+}
+
+// Initialize Find & Replace and Case Transformer Event Handlers
+document.addEventListener('DOMContentLoaded', () => {
+    const btnToggleFR = document.getElementById('btnToggleFindReplace');
+    const frBar = document.getElementById('findReplaceBar');
+    const btnReplaceAll = document.getElementById('btnExecuteReplaceAll');
+    const findInput = document.getElementById('findTextInput');
+    const replaceInput = document.getElementById('replaceTextInput');
+    const btnUpper = document.getElementById('btnCaseUpper');
+    const btnTitle = document.getElementById('btnCaseTitle');
+    const btnLower = document.getElementById('btnCaseLower');
+    const btnAi = document.getElementById('btnAiCaptions');
+
+    if (btnToggleFR && frBar) {
+        btnToggleFR.addEventListener('click', () => {
+            const isShown = frBar.style.display !== 'none';
+            frBar.style.display = isShown ? 'none' : 'flex';
+            btnToggleFR.classList.toggle('active', !isShown);
+            if (!isShown && findInput) findInput.focus();
+        });
+    }
+
+    if (btnReplaceAll && findInput && replaceInput) {
+        btnReplaceAll.addEventListener('click', () => {
+            executeFindAndReplace(findInput.value, replaceInput.value);
+        });
+    }
+
+    if (btnUpper) btnUpper.addEventListener('click', () => convertAllCaptionsCase('upper'));
+    if (btnTitle) btnTitle.addEventListener('click', () => convertAllCaptionsCase('title'));
+    if (btnLower) btnLower.addEventListener('click', () => convertAllCaptionsCase('lower'));
+    if (btnAi) btnAi.addEventListener('click', autoGenerateAiCaptions);
+});
