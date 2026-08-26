@@ -452,8 +452,12 @@
                 <div class="batch-export-footer">
                     <div class="batch-export-settings-row">
                         <div class="batch-target-folder-box">
-                            <label for="batchCustomOutputDir">Target Export Folder:</label>
-                            <input type="text" id="batchCustomOutputDir" placeholder="Default (app /exports folder) or custom folder path..." class="pp-input-sm">
+                            <label for="batchCustomOutputDir">Local / Exports Folder:</label>
+                            <input type="text" id="batchCustomOutputDir" placeholder="Default (/exports folder) or custom path (e.g. /content/exports)..." class="pp-input-sm">
+                        </div>
+                        <div class="batch-target-folder-box">
+                            <label for="batchDriveExportDir">Google Drive Path:</label>
+                            <input type="text" id="batchDriveExportDir" placeholder="e.g. /content/drive/MyDrive/Exported_Reels" class="pp-input-sm">
                         </div>
                         <div class="batch-format-checks">
                             <label class="checkbox-label"><input type="checkbox" id="batchExportMp4" checked> Burned .MP4</label>
@@ -1053,17 +1057,35 @@
                         </div>
                         <div>
                             <h3 class="render-workstation-title">Sequential Batch Render Workstation</h3>
-                            <span class="render-sub-tag" id="batchCurrentVideoTitle">Processing Queue...</span>
+                            <span class="render-sub-tag" id="batchCurrentVideoTitle">Processing Video Queue...</span>
                         </div>
                     </div>
                     <span id="batchQueueBadge" class="pro-stage-pill">BATCH ACTIVE</span>
                 </div>
 
+                <!-- Multi-Stage Stepper Pipeline for Active Video -->
+                <div class="render-pipeline-stepper" style="margin-top: 10px;">
+                    <div class="pipeline-step active" id="batchStepSubtitles">
+                        <span class="step-num">1</span>
+                        <span class="step-label">Subtitles & SRT</span>
+                    </div>
+                    <div class="pipeline-connector"></div>
+                    <div class="pipeline-step" id="batchStepEncode">
+                        <span class="step-num">2</span>
+                        <span class="step-label">Video Encode</span>
+                    </div>
+                    <div class="pipeline-connector"></div>
+                    <div class="pipeline-step" id="batchStepFinalize">
+                        <span class="step-num">3</span>
+                        <span class="step-label">Export & Drive Sync</span>
+                    </div>
+                </div>
+
                 <!-- Overall Queue Progress -->
-                <div class="batch-overall-section">
+                <div class="batch-overall-section" style="margin-top: 10px;">
                     <div class="batch-queue-meta-row">
                         <span class="batch-queue-label">TOTAL QUEUE PROGRESS</span>
-                        <span class="batch-queue-val" id="batchOverallProgressText">0% Overall</span>
+                        <span class="batch-queue-val" id="batchOverallProgressText">0% Overall (Video 0 of 0)</span>
                     </div>
                     <div class="pro-progress-track">
                         <div class="pro-progress-fill" id="batchOverallProgressFill" style="width: 0%; background: linear-gradient(90deg, #3b82f6, #22c55e);">
@@ -1073,7 +1095,7 @@
                 </div>
 
                 <!-- Active Video Progress Bar & Hero -->
-                <div class="render-progress-hero" style="margin-top: 14px;">
+                <div class="render-progress-hero" style="margin-top: 12px;">
                     <div class="render-pct-large" id="batchItemProgressPct">0%</div>
                     <div class="render-status-headline" id="batchStatusText">Preparing active video encode...</div>
                 </div>
@@ -1100,12 +1122,18 @@
                         <span class="stat-val" id="batchEtaText">--</span>
                     </div>
                     <div class="render-stat-card">
-                        <span class="stat-meta">FILE NAMING</span>
-                        <span class="stat-val" style="font-size: 11px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">Preserved Source</span>
+                        <span class="stat-meta">FILE NAME</span>
+                        <span class="stat-val" id="batchActiveFileName" style="font-size: 11px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">Preserved Source</span>
                     </div>
                 </div>
 
-                <div class="modal-actions-row" style="margin-top: 18px; justify-content: flex-end;">
+                <!-- Render Error Display -->
+                <div id="batchRenderErrorBox" class="render-error-box" style="display: none; margin-top: 10px;">
+                    <span id="batchRenderErrorMsg">Render error details</span>
+                    <button id="btnDismissBatchRenderError" class="btn btn-secondary btn-xs" onclick="document.getElementById('batchRenderErrorBox').style.display='none'">Dismiss</button>
+                </div>
+
+                <div class="modal-actions-row" style="margin-top: 14px; justify-content: flex-end;">
                     <button id="btnBatchDoneClose" class="btn btn-primary" style="display: none;" onclick="showBatchRenderModal(false)">
                         ✓ Close & View in Batch Matrix
                     </button>

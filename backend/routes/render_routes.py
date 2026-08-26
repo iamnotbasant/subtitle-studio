@@ -234,19 +234,15 @@ def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequ
         local_srt_dir.mkdir(parents=True, exist_ok=True)
         local_xml_dir.mkdir(parents=True, exist_ok=True)
 
-        dest_base_str = req.google_drive_export_path or req.custom_output_dir
-        dest_video_dir = None
-        dest_srt_dir = None
-        dest_xml_dir = None
+        custom_base = None
+        if req.custom_output_dir and str(req.custom_output_dir).strip():
+            custom_base = Path(str(req.custom_output_dir).strip()).resolve()
+            custom_base.mkdir(parents=True, exist_ok=True)
 
-        if dest_base_str:
-            dest_base = Path(dest_base_str).resolve()
-            dest_video_dir = dest_base / "videos"
-            dest_srt_dir = dest_base / "subtitles"
-            dest_xml_dir = dest_base / "sequences"
-            dest_video_dir.mkdir(parents=True, exist_ok=True)
-            dest_srt_dir.mkdir(parents=True, exist_ok=True)
-            dest_xml_dir.mkdir(parents=True, exist_ok=True)
+        drive_base = None
+        if req.google_drive_export_path and str(req.google_drive_export_path).strip():
+            drive_base = Path(str(req.google_drive_export_path).strip()).resolve()
+            drive_base.mkdir(parents=True, exist_ok=True)
 
         # Stage 1: Generate subtitle styles & ASS script
         update_render_progress(
@@ -278,18 +274,18 @@ def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequ
                 eta="1s"
             )
             generate_srt_file(caption_dicts, out_srt_path)
-            # Immediately copy to destination folder if configured
+            # Copy to custom or drive folders if configured
             if out_srt_path.exists():
-                if dest_srt_dir:
+                if custom_base and custom_base.exists():
                     try:
-                        shutil.copy2(out_srt_path, dest_srt_dir / out_srt_path.name)
+                        shutil.copy2(out_srt_path, custom_base / out_srt_path.name)
                     except Exception as ce:
-                        print(f"Warning: Could not copy SRT to target folder: {ce}")
-                if dest_base and dest_base.exists() and dest_base != dest_srt_dir:
+                        print(f"Warning: Could not copy SRT to custom folder: {ce}")
+                if drive_base and drive_base.exists():
                     try:
-                        shutil.copy2(out_srt_path, dest_base / out_srt_path.name)
-                    except Exception:
-                        pass
+                        shutil.copy2(out_srt_path, drive_base / out_srt_path.name)
+                    except Exception as de:
+                        print(f"Warning: Could not copy SRT to Google Drive: {de}")
 
         # Step 3: Generate Premiere Pro XML sequence
         if req.export_xml:
@@ -301,16 +297,16 @@ def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequ
             )
             generate_premiere_xml(video_path, caption_dicts, out_xml_path)
             if out_xml_path.exists():
-                if dest_xml_dir:
+                if custom_base and custom_base.exists():
                     try:
-                        shutil.copy2(out_xml_path, dest_xml_dir / out_xml_path.name)
+                        shutil.copy2(out_xml_path, custom_base / out_xml_path.name)
                     except Exception as ce:
-                        print(f"Warning: Could not copy XML to target folder: {ce}")
-                if dest_base and dest_base.exists() and dest_base != dest_xml_dir:
+                        print(f"Warning: Could not copy XML to custom folder: {ce}")
+                if drive_base and drive_base.exists():
                     try:
-                        shutil.copy2(out_xml_path, dest_base / out_xml_path.name)
-                    except Exception:
-                        pass
+                        shutil.copy2(out_xml_path, drive_base / out_xml_path.name)
+                    except Exception as de:
+                        print(f"Warning: Could not copy XML to Google Drive: {de}")
 
         # Step 4: Render Video with burned subtitles
         if req.export_mp4:
@@ -320,16 +316,16 @@ def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequ
                 return
 
             if out_mp4_path.exists():
-                if dest_video_dir:
+                if custom_base and custom_base.exists():
                     try:
-                        shutil.copy2(out_mp4_path, dest_video_dir / out_mp4_path.name)
+                        shutil.copy2(out_mp4_path, custom_base / out_mp4_path.name)
                     except Exception as ce:
-                        print(f"Warning: Could not copy MP4 to target folder: {ce}")
-                if dest_base and dest_base.exists() and dest_base != dest_video_dir:
+                        print(f"Warning: Could not copy MP4 to custom folder: {ce}")
+                if drive_base and drive_base.exists():
                     try:
-                        shutil.copy2(out_mp4_path, dest_base / out_mp4_path.name)
-                    except Exception:
-                        pass
+                        shutil.copy2(out_mp4_path, drive_base / out_mp4_path.name)
+                    except Exception as de:
+                        print(f"Warning: Could not copy MP4 to Google Drive: {de}")
         else:
             # If MP4 burn was not selected, complete task now
             update_render_progress(

@@ -666,8 +666,28 @@ function editBatchItemInSingle(itemId) {
 
     batchState.activeEditingItemId = itemId;
 
+    // Reset single studio video player spinner text to avoid misleading drive download banner
+    const spinner = document.getElementById('videoLoadingSpinner');
+    if (spinner) {
+        const txt = spinner.querySelector('.spinner-text');
+        if (txt) txt.textContent = "Optimizing video stream for playback...";
+    }
+
     // Load video in Single Studio
-    if (item.videoPath && typeof loadColabStream === 'function') {
+    const video = document.getElementById('mainVideoPlayer');
+    if (item.fileObject && video) {
+        try {
+            const blobUrl = URL.createObjectURL(item.fileObject);
+            video.src = blobUrl;
+            video.load();
+            currentLoadedVideoPath = item.videoName;
+            logExec(`Loaded uploaded video clip "${item.videoName}" into Single Studio.`, "success");
+        } catch (e) {
+            if (item.videoPath && typeof loadColabStream === 'function') {
+                loadColabStream(item.videoPath);
+            }
+        }
+    } else if (item.videoPath && typeof loadColabStream === 'function') {
         loadColabStream(item.videoPath);
     }
 
@@ -739,15 +759,19 @@ async function promptAndStartBatchRender() {
         return;
     }
 
-    // Get user target export folder
+    // Get user target export folders (Local & Google Drive)
     const targetFolderInput = document.getElementById('batchCustomOutputDir');
     let targetFolder = targetFolderInput ? targetFolderInput.value.trim() : '';
+
+    const driveFolderInput = document.getElementById('batchDriveExportDir');
+    let driveFolder = driveFolderInput ? driveFolderInput.value.trim() : '';
 
     const exportMp4 = document.getElementById('batchExportMp4') ? document.getElementById('batchExportMp4').checked : true;
     const exportSrt = document.getElementById('batchExportSrt') ? document.getElementById('batchExportSrt').checked : true;
     const exportXml = document.getElementById('batchExportXml') ? document.getElementById('batchExportXml').checked : true;
 
     batchState.customOutputDir = targetFolder;
+    batchState.googleDriveExportPath = driveFolder;
     batchState.exportMp4 = exportMp4;
     batchState.exportSrt = exportSrt;
     batchState.exportXml = exportXml;
@@ -811,6 +835,7 @@ async function executeNextBatchRenderJob() {
         captions: itemCaps,
         style: styleState, // Global Shared Premiere Properties Style!
         custom_output_dir: batchState.customOutputDir || null,
+        google_drive_export_path: batchState.googleDriveExportPath || null,
         export_filename: currentItem.videoName, // Strictly preserve original video filename!
         export_mp4: batchState.exportMp4,
         export_srt: batchState.exportSrt,
@@ -891,11 +916,21 @@ function updateBatchModalHero(itemIndex, totalCount, currentItem) {
     const overallText = document.getElementById('batchOverallProgressText');
     const currentVideoTitle = document.getElementById('batchCurrentVideoTitle');
     const queueBadge = document.getElementById('batchQueueBadge');
+    const activeFileName = document.getElementById('batchActiveFileName');
 
     if (overallFill) overallFill.style.width = `${overallPct}%`;
     if (overallText) overallText.textContent = `${overallPct}% (Video ${itemIndex} of ${totalCount})`;
     if (currentVideoTitle) currentVideoTitle.textContent = currentItem.videoName;
     if (queueBadge) queueBadge.textContent = `PROCESSING ${itemIndex} OF ${totalCount}`;
+    if (activeFileName) activeFileName.textContent = currentItem.videoName;
+
+    // Reset stepper
+    const step1 = document.getElementById('batchStepSubtitles');
+    const step2 = document.getElementById('batchStepEncode');
+    const step3 = document.getElementById('batchStepFinalize');
+    if (step1) { step1.className = 'pipeline-step active'; }
+    if (step2) { step2.className = 'pipeline-step'; }
+    if (step3) { step3.className = 'pipeline-step'; }
 }
 
 function updateBatchModalStats(pctVal, data, itemIndex, totalCount, currentItem) {
@@ -908,20 +943,41 @@ function updateBatchModalStats(pctVal, data, itemIndex, totalCount, currentItem)
     const speedText = document.getElementById('batchSpeedText');
     const etaText = document.getElementById('batchEtaText');
     const framesText = document.getElementById('batchFramesText');
+    const activeFileName = document.getElementById('batchActiveFileName');
 
     if (overallFill) overallFill.style.width = `${overallPct}%`;
-    if (overallText) overallText.textContent = `${overallPct}% Overall`;
+    if (overallText) overallText.textContent = `${overallPct}% (Video ${itemIndex} of ${totalCount})`;
     if (itemFill) itemFill.style.width = `${pctVal}%`;
     if (itemPct) itemPct.textContent = `${pctVal.toFixed(1)}%`;
     if (statusText && data.status) statusText.textContent = data.status;
     if (speedText && data.speed) speedText.textContent = data.speed;
     if (etaText && data.eta) etaText.textContent = data.eta;
+    if (activeFileName) activeFileName.textContent = currentItem.videoName;
     if (framesText) {
         if (data.total_frames && data.total_frames > 0) {
             framesText.textContent = `${data.current_frame || 0} / ${data.total_frames}`;
         } else {
             framesText.textContent = `${data.current_frame || 0}`;
         }
+    }
+
+    // Dynamic Multi-Stage Stepper Sync
+    const step1 = document.getElementById('batchStepSubtitles');
+    const step2 = document.getElementById('batchStepEncode');
+    const step3 = document.getElementById('batchStepFinalize');
+
+    if (data.stage === 'Subtitle Engine' || data.stage === 'SRT Export') {
+        if (step1) step1.className = 'pipeline-step active';
+        if (step2) step2.className = 'pipeline-step';
+        if (step3) step3.className = 'pipeline-step';
+    } else if (data.stage === 'Sequence XML' || data.stage === 'Video Encode' || data.stage === 'Hardware Accelerated' || data.stage === 'Render' || (pctVal > 15 && pctVal < 90)) {
+        if (step1) step1.className = 'pipeline-step done';
+        if (step2) step2.className = 'pipeline-step active';
+        if (step3) step3.className = 'pipeline-step';
+    } else if (data.stage === 'Drive Sync' || data.stage === 'Export' || data.stage === 'Done' || pctVal >= 90) {
+        if (step1) step1.className = 'pipeline-step done';
+        if (step2) step2.className = 'pipeline-step done';
+        if (step3) step3.className = 'pipeline-step active';
     }
 }
 
@@ -934,6 +990,13 @@ function handleBatchRenderCompleted() {
     const overallFill = document.getElementById('batchOverallProgressFill');
     const itemFill = document.getElementById('batchItemProgressFill');
     const btnDone = document.getElementById('btnBatchDoneClose');
+
+    const step1 = document.getElementById('batchStepSubtitles');
+    const step2 = document.getElementById('batchStepEncode');
+    const step3 = document.getElementById('batchStepFinalize');
+    if (step1) step1.className = 'pipeline-step done';
+    if (step2) step2.className = 'pipeline-step done';
+    if (step3) step3.className = 'pipeline-step done';
 
     if (statusText) statusText.textContent = `All ${batchState.renderQueue.length} batch videos exported successfully!`;
     if (queueBadge) {

@@ -132,7 +132,11 @@ async function loadColabStream(videoPath) {
     const pathInput = document.getElementById('videoPathInput');
 
     if (pathInput) pathInput.value = cleanPath;
-    if (spinner) spinner.style.display = 'flex';
+    if (spinner) {
+        spinner.style.display = 'flex';
+        const txt = spinner.querySelector('.spinner-text');
+        if (txt) txt.textContent = "Optimizing video stream for playback...";
+    }
     logExec(`Validating source video path: ${cleanPath}...`, "info");
 
     try {
