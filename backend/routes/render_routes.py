@@ -1,6 +1,8 @@
 import os
 import shutil
 import threading
+import time
+import uuid
 from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
@@ -223,8 +225,6 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
     with open(ass_output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(ass_content))
 
-import uuid
-
 RENDER_EXECUTION_LOCK = threading.Lock()
 
 def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequest, job_id: str):
@@ -241,13 +241,19 @@ def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequ
 
             custom_base = None
             if req.custom_output_dir and str(req.custom_output_dir).strip():
-                custom_base = Path(str(req.custom_output_dir).strip()).resolve()
-                custom_base.mkdir(parents=True, exist_ok=True)
+                try:
+                    custom_base = Path(str(req.custom_output_dir).strip()).resolve()
+                    custom_base.mkdir(parents=True, exist_ok=True)
+                except Exception as ce:
+                    print(f"Warning: Could not create custom output folder: {ce}")
 
             drive_base = None
             if req.google_drive_export_path and str(req.google_drive_export_path).strip():
-                drive_base = Path(str(req.google_drive_export_path).strip()).resolve()
-                drive_base.mkdir(parents=True, exist_ok=True)
+                try:
+                    drive_base = Path(str(req.google_drive_export_path).strip()).resolve()
+                    drive_base.mkdir(parents=True, exist_ok=True)
+                except Exception as de:
+                    print(f"Warning: Could not create Google Drive export folder: {de}")
 
             # Stage 1: Generate subtitle styles & ASS script
             update_render_progress(
@@ -261,17 +267,19 @@ def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequ
             ass_path = TEMP_DIR / f"render_{job_id}.ass"
             generate_ass_script(video_path, caption_dicts, req.style, ass_path)
 
-            # Calculate auto-versioned output paths (clean stem first, then _v1, _v2 if collision exists)
+            # Calculate output paths
             if req.export_filename and req.export_filename.strip():
                 clean_stem = Path(req.export_filename.strip()).stem
                 out_srt_path = local_srt_dir / f"{clean_stem}.srt"
+                out_mp4_path = local_video_dir / f"{clean_stem}.mp4"
+                out_xml_path = local_xml_dir / f"{clean_stem}.xml"
             else:
-                out_srt_path = get_auto_versioned_path(video_path, ext=".srt", base_dir=local_srt_dir)
-                clean_stem = out_srt_path.stem
-            out_mp4_path = local_video_dir / f"{clean_stem}.mp4"
-            out_xml_path = local_xml_dir / f"{clean_stem}.xml"
+                out_mp4_path = get_auto_versioned_path(video_path, ext=".mp4", base_dir=local_video_dir)
+                clean_stem = out_mp4_path.stem
+                out_srt_path = local_srt_dir / f"{clean_stem}.srt"
+                out_xml_path = local_xml_dir / f"{clean_stem}.xml"
 
-            # Step 2: Generate and save .SRT file FIRST as requested
+            # Step 2: Generate and save .SRT file FIRST
             if req.export_srt:
                 update_render_progress(
                     job_id=job_id,
@@ -283,14 +291,20 @@ def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequ
                 generate_srt_file(caption_dicts, out_srt_path)
                 # Copy to custom or drive folders if configured
                 if out_srt_path.exists():
-                    if custom_base and custom_base.exists():
+                    if custom_base:
                         try:
+                            if not custom_base.exists():
+                                custom_base.mkdir(parents=True, exist_ok=True)
                             shutil.copy2(out_srt_path, custom_base / out_srt_path.name)
+                            print(f"[OK] Copied SRT to custom directory: {custom_base / out_srt_path.name}")
                         except Exception as ce:
                             print(f"Warning: Could not copy SRT to custom folder: {ce}")
-                    if drive_base and drive_base.exists():
+                    if drive_base:
                         try:
+                            if not drive_base.exists():
+                                drive_base.mkdir(parents=True, exist_ok=True)
                             shutil.copy2(out_srt_path, drive_base / out_srt_path.name)
+                            print(f"[OK] Copied SRT to Google Drive: {drive_base / out_srt_path.name}")
                         except Exception as de:
                             print(f"Warning: Could not copy SRT to Google Drive: {de}")
 
@@ -305,14 +319,20 @@ def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequ
                 )
                 generate_premiere_xml(video_path, caption_dicts, out_xml_path)
                 if out_xml_path.exists():
-                    if custom_base and custom_base.exists():
+                    if custom_base:
                         try:
+                            if not custom_base.exists():
+                                custom_base.mkdir(parents=True, exist_ok=True)
                             shutil.copy2(out_xml_path, custom_base / out_xml_path.name)
+                            print(f"[OK] Copied XML to custom directory: {custom_base / out_xml_path.name}")
                         except Exception as ce:
                             print(f"Warning: Could not copy XML to custom folder: {ce}")
-                    if drive_base and drive_base.exists():
+                    if drive_base:
                         try:
+                            if not drive_base.exists():
+                                drive_base.mkdir(parents=True, exist_ok=True)
                             shutil.copy2(out_xml_path, drive_base / out_xml_path.name)
+                            print(f"[OK] Copied XML to Google Drive: {drive_base / out_xml_path.name}")
                         except Exception as de:
                             print(f"Warning: Could not copy XML to Google Drive: {de}")
 
@@ -324,22 +344,39 @@ def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequ
                     return
 
                 if out_mp4_path.exists():
-                    if custom_base and custom_base.exists():
+                    if custom_base:
                         try:
+                            update_render_progress(job_id=job_id, percent=99.0, status="Saving video to custom folder...", stage="Finalizing")
+                            if not custom_base.exists():
+                                custom_base.mkdir(parents=True, exist_ok=True)
                             shutil.copy2(out_mp4_path, custom_base / out_mp4_path.name)
+                            print(f"[OK] Copied MP4 to custom directory: {custom_base / out_mp4_path.name}")
                         except Exception as ce:
                             print(f"Warning: Could not copy MP4 to custom folder: {ce}")
-                    if drive_base and drive_base.exists():
+                    if drive_base:
                         try:
+                            update_render_progress(job_id=job_id, percent=99.0, status=f"Saving video to Google Drive ({drive_base.name})...", stage="Finalizing")
+                            if not drive_base.exists():
+                                drive_base.mkdir(parents=True, exist_ok=True)
                             shutil.copy2(out_mp4_path, drive_base / out_mp4_path.name)
+                            print(f"[OK] Copied MP4 to Google Drive: {drive_base / out_mp4_path.name}")
                         except Exception as de:
                             print(f"Warning: Could not copy MP4 to Google Drive: {de}")
-            else:
-                # If MP4 burn was not selected, complete task now
+                
+                drive_msg = f" (Saved to Drive: {drive_base.name})" if drive_base else ""
                 update_render_progress(
                     job_id=job_id,
                     percent=100.0,
-                    status="Subtitle & XML Export Completed Successfully",
+                    status=f"Render Completed Successfully{drive_msg}",
+                    stage="Done",
+                    eta="0s"
+                )
+            else:
+                drive_msg = f" (Saved to Drive: {drive_base.name})" if drive_base else ""
+                update_render_progress(
+                    job_id=job_id,
+                    percent=100.0,
+                    status=f"Subtitle & XML Export Completed Successfully{drive_msg}",
                     stage="Done",
                     eta="0s"
                 )

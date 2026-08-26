@@ -305,17 +305,25 @@ async function triggerExport() {
             body: JSON.stringify(payload)
         });
 
-        const data = await res.json();
+        let data = {};
+        const text = await res.text();
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            data = { detail: text || `HTTP ${res.status}: ${res.statusText}` };
+        }
+
         if (res.ok) {
             logExec("Render job queued. Monitoring progress...", "success");
             startProgressPolling();
         } else {
             showRenderModal(false);
-            logExec(`Render request rejected: ${data.detail}`, "error");
+            const errDetail = data.detail || (typeof data === 'string' ? data : JSON.stringify(data));
+            logExec(`Render request rejected: ${errDetail}`, "error");
         }
     } catch (err) {
         showRenderModal(false);
-        logExec(`Render request error: ${err}`, "error");
+        logExec(`Render request error: ${err.message || err}`, "error");
     }
 }
 

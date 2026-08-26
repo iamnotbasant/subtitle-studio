@@ -851,7 +851,18 @@ async function executeNextBatchRenderJob() {
             body: JSON.stringify(payload)
         });
 
-        const renderRes = await res.json();
+        let renderRes = {};
+        const text = await res.text();
+        try {
+            renderRes = JSON.parse(text);
+        } catch (e) {
+            renderRes = { detail: text || `HTTP ${res.status}: ${res.statusText}` };
+        }
+
+        if (!res.ok) {
+            throw new Error(renderRes.detail || `Server error: ${res.status}`);
+        }
+
         const jobId = renderRes.job_id;
 
         // Poll progress for this specific job ID
