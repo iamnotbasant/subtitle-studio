@@ -1,13 +1,14 @@
 import os
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import gdown
 
-from config import TEMP_DIR
+from config import TEMP_DIR, OUTPUT_DIR, BASE_DIR
 from backend.utils.ffmpeg_engine import get_video_duration_secs, get_video_info
 
 router = APIRouter()
@@ -28,7 +29,7 @@ def check_video(req: CheckVideoRequest):
     path_obj = Path(req.video_path).resolve()
     if not path_obj.exists():
         parent_dir = path_obj.parent if path_obj.parent.exists() else Path.cwd()
-        video_extensions = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
+        video_extensions = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".flv", ".m4v", ".wmv"}
         available_files = [
             f.name for f in parent_dir.glob("*") if f.suffix.lower() in video_extensions
         ]
@@ -59,9 +60,11 @@ def check_video(req: CheckVideoRequest):
 @router.get("/browse_files")
 def browse_files(folder_path: Optional[str] = None):
     """
-    Lists subdirectories and video files for folder browser and quick-select dropdown.
+    Lists subdirectories, video files, and subtitle files for folder browser and quick-select modals.
+    Returns bookmarks, video metadata, and auto-pairing helpers.
     """
-    video_extensions = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".flv", ".m4v", ".wmv"}
+    video_extensions = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".flv", ".m4v", ".wmv", ".ts", ".3gp"}
+    srt_extensions = {".srt", ".vtt", ".ass"}
     
     if folder_path and folder_path.strip():
         curr_dir = Path(folder_path.strip()).resolve()
@@ -75,48 +78,138 @@ def browse_files(folder_path: Optional[str] = None):
 
     parent_dir = str(curr_dir.parent.resolve()) if curr_dir.parent != curr_dir else None
 
+    # Detect Available Quick Bookmarks
+    bookmarks = []
+    colab_root = Path("/content")
+    if colab_root.exists():
+        bookmarks.append({"label": "Colab Root (/content)", "path": str(colab_root.resolve()), "icon": "colab"})
+    
+    gdrive_mydrive = Path("/content/drive/MyDrive")
+    if gdrive_mydrive.exists():
+        bookmarks.append({"label": "Google Drive (MyDrive)", "path": str(gdrive_mydrive.resolve()), "icon": "drive"})
+    elif Path("/content/drive").exists():
+        bookmarks.append({"label": "Google Drive", "path": "/content/drive", "icon": "drive"})
+
+    if OUTPUT_DIR.exists():
+        bookmarks.append({"label": "App Exports", "path": str(OUTPUT_DIR.resolve()), "icon": "exports"})
+
+    bookmarks.append({"label": "Working Directory", "path": str(Path.cwd().resolve()), "icon": "folder"})
+
     subdirs = []
     video_files = []
+    srt_files = []
 
     try:
         for entry in sorted(curr_dir.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower())):
-            if entry.name.startswith(".") or entry.name in ("__pycache__", "node_modules", "temp"):
+            if entry.name.startswith(".") or entry.name in ("__pycache__", "node_modules", "temp", ".git"):
                 continue
             if entry.is_dir():
+                # Count videos in subdirectory
+                vid_count = 0
+                try:
+                    vid_count = len([f for f in entry.glob("*") if f.is_file() and f.suffix.lower() in video_extensions])
+                except Exception:
+                    pass
+
                 subdirs.append({
                     "name": entry.name,
                     "path": str(entry.resolve()),
-                    "is_dir": True
+                    "is_dir": True,
+                    "video_count": vid_count
                 })
-            elif entry.is_file() and entry.suffix.lower() in video_extensions:
-                try:
-                    stat = entry.stat()
-                    size_mb = round(stat.st_size / (1024 * 1024), 2)
-                    video_files.append({
-                        "name": entry.name,
-                        "path": str(entry.resolve()),
-                        "size_mb": size_mb,
-                        "is_dir": False
-                    })
-                except Exception:
-                    pass
+            elif entry.is_file():
+                ext = entry.suffix.lower()
+                if ext in video_extensions:
+                    try:
+                        stat = entry.stat()
+                        size_mb = round(stat.st_size / (1024 * 1024), 2)
+                        
+                        # Check if matching SRT exists in this directory
+                        has_matching_srt = (curr_dir / f"{entry.stem}.srt").exists() or (curr_dir / f"{entry.stem}.vtt").exists()
+
+                        video_obj = {
+                            "name": entry.name,
+                            "path": str(entry.resolve()),
+                            "size_mb": size_mb,
+                            "stem": entry.stem,
+                            "ext": ext,
+                            "is_dir": False,
+                            "has_matching_srt": has_matching_srt,
+                            "modified_at": int(stat.st_mtime)
+                        }
+                        video_files.append(video_obj)
+                    except Exception:
+                        pass
+                elif ext in srt_extensions:
+                    try:
+                        stat = entry.stat()
+                        size_kb = round(stat.st_size / 1024, 1)
+                        srt_files.append({
+                            "name": entry.name,
+                            "path": str(entry.resolve()),
+                            "size_kb": size_kb,
+                            "stem": entry.stem,
+                            "ext": ext,
+                            "is_dir": False
+                        })
+                    except Exception:
+                        pass
     except Exception as e:
         return {
             "success": False,
             "error": str(e),
             "current_dir": str(curr_dir),
             "parent_dir": parent_dir,
+            "bookmarks": bookmarks,
             "subdirs": [],
-            "video_files": []
+            "video_files": [],
+            "videos": [],
+            "srt_files": []
         }
 
     return {
         "success": True,
         "current_dir": str(curr_dir),
         "parent_dir": parent_dir,
+        "bookmarks": bookmarks,
         "subdirs": subdirs,
-        "video_files": video_files
+        "video_files": video_files,
+        "videos": video_files, # Backward compatibility alias!
+        "srt_files": srt_files
     }
+
+@router.post("/upload_media")
+async def upload_media_file(file: UploadFile = File(...)):
+    """
+    Accepts multipart media file upload and saves to local server directory.
+    Enables direct browser uploads to Google Colab and remote servers.
+    """
+    upload_dir = TEMP_DIR / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    clean_filename = Path(file.filename).name
+    save_path = upload_dir / clean_filename
+
+    try:
+        with open(save_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        stat = save_path.stat()
+        size_mb = round(stat.st_size / (1024 * 1024), 2)
+        ext = save_path.suffix.lower()
+        is_video = ext in {".mp4", ".mov", ".mkv", ".avi", ".webm", ".flv", ".m4v", ".wmv"}
+        is_srt = ext in {".srt", ".vtt", ".ass"}
+
+        return {
+            "success": True,
+            "saved_path": str(save_path.resolve()),
+            "filename": clean_filename,
+            "size_mb": size_mb,
+            "is_video": is_video,
+            "is_srt": is_srt
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
 
 @router.get("/stream")
 def stream_video(video_path: str = Query(...), quality: str = Query("480p")):

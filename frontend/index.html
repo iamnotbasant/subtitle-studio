@@ -414,9 +414,13 @@
                         <input type="text" id="batchPathInput" placeholder="Enter folder path or video/SRT path (e.g. /content/reels or C:\Videos)..." class="pp-input-sm">
                         <button id="btnBatchAddPath" class="btn-xs btn-white">Load Path</button>
                     </div>
+                    <div class="batch-quick-chips" style="display: flex; gap: 5px; align-items: center;">
+                        <button class="btn-xs" style="background:#1e1e26;border:1px solid rgba(255,255,255,0.1);color:#e4e4e7;" onclick="openFolderBrowserModal('/content')">📂 /content</button>
+                        <button class="btn-xs" style="background:#1e1e26;border:1px solid rgba(255,255,255,0.1);color:#e4e4e7;" onclick="openFolderBrowserModal('/content/drive/MyDrive')">☁️ Drive</button>
+                    </div>
                     <div class="batch-drop-hint" id="batchDropzone">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-                        <span>Drag & drop multiple videos or .SRTs here</span>
+                        <span>Drag & drop files here</span>
                     </div>
                 </div>
 
@@ -1141,47 +1145,75 @@
             </div>
         </div>
 
-        <!-- FOLDER EXPLORER & VIDEO BROWSER MODAL (WINDOWS EXPLORER STYLE) -->
+        <!-- PREMIERE MEDIA & SUBTITLE ASSET EXPLORER MODAL -->
         <div class="modal-overlay" id="folderBrowserModal" style="display: none;">
-            <div class="modal-card folder-browser-card">
+            <div class="modal-card folder-browser-card pro-explorer-modal">
                 <div class="modal-title-row" style="justify-content: space-between;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
                         <div class="modal-icon-badge">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                         </div>
                         <div>
-                            <h3>Folder Explorer</h3>
-                            <p class="modal-subtitle">Browse directories and select videos easily</p>
+                            <h3 style="font-size: 15px; font-weight: 700; color: #ffffff;">Media & Subtitle Asset Explorer</h3>
+                            <p class="modal-subtitle">Browse, preview, and load videos or subtitles from Colab, Google Drive & Local Storage</p>
                         </div>
                     </div>
                     <button id="btnCloseFolderBrowser" class="btn-xs modal-close-btn">✕</button>
                 </div>
 
-                <!-- Navigation Path Bar -->
+                <!-- Explorer Quick Bookmarks Bar -->
+                <div class="explorer-bookmarks-bar" id="browserBookmarksBar">
+                    <!-- Dynamic bookmark chips: /content, Google Drive, Exports, Working Dir -->
+                </div>
+
+                <!-- Navigation Path Bar + Search + View Controls -->
                 <div class="browser-nav-bar">
-                    <button id="btnBrowserGoUp" class="btn-xs" title="Go up to parent directory">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+                    <button id="btnBrowserGoUp" class="btn-xs btn-explorer-nav" title="Go up to parent directory">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 15l-6-6-6 6"/></svg>
                         Up
                     </button>
                     <div class="browser-current-path-box">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
                         <input type="text" id="browserCurrentPathInput" class="browser-path-input" placeholder="/content/...">
                     </div>
-                    <button id="btnBrowserRefresh" class="btn-xs" title="Refresh directory">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    <button id="btnBrowserRefresh" class="btn-xs btn-explorer-nav" title="Refresh directory">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                     </button>
+                    <!-- Quick Upload Button -->
+                    <label class="btn-xs btn-upload-explorer" title="Upload video or .srt from local PC">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                        Upload to Server
+                        <input type="file" id="explorerUploadInput" multiple style="display:none;" accept="video/*,.srt,.vtt">
+                    </label>
                 </div>
 
-                <!-- Files and Folders List Container -->
-                <div class="browser-content-area" id="browserContentArea">
-                    <div class="browser-section-label">SUBFOLDERS</div>
-                    <div class="browser-subdirs-grid" id="browserSubdirsList">
-                        <!-- Subdirectories populated by app.js -->
+                <!-- Explorer Filter Tabs & Multi-select Header -->
+                <div class="explorer-toolbar-row">
+                    <div class="explorer-filter-pills">
+                        <button class="filter-pill active" id="filterAllMedia" onclick="setExplorerFilter('all')">All Media</button>
+                        <button class="filter-pill" id="filterVideos" onclick="setExplorerFilter('videos')">Videos (<span id="explorerVideoCount">0</span>)</button>
+                        <button class="filter-pill" id="filterSubtitles" onclick="setExplorerFilter('subtitles')">Subtitles (<span id="explorerSrtCount">0</span>)</button>
                     </div>
+                    <div class="explorer-bulk-actions" id="explorerBulkActions" style="display: flex; gap: 8px;">
+                        <button id="btnExplorerSelectAll" class="btn-xs">Select All</button>
+                        <button id="btnExplorerAddSelectedToBatch" class="btn-xs btn-primary">➕ Add Selected to Bulk Studio</button>
+                        <button id="btnExplorerImportFolderToBatch" class="btn-xs btn-glow" style="background:#22c55e;color:#000;font-weight:700;">⚡ Import Entire Folder + Auto-Match</button>
+                    </div>
+                </div>
 
-                    <div class="browser-section-label" style="margin-top: 10px;">VIDEO CLIPS IN DIRECTORY</div>
-                    <div class="browser-files-list" id="browserFilesList">
-                        <!-- Video files populated by app.js -->
+                <!-- Files and Folders Content Container -->
+                <div class="browser-content-area pro-scroll" id="browserContentArea">
+                    <!-- Subfolders section -->
+                    <div class="browser-section-header">
+                        <span>SUBDIRECTORIES</span>
                     </div>
+                    <div class="browser-subdirs-grid" id="browserSubdirsList"></div>
+
+                    <!-- Video / Subtitle Media Grid -->
+                    <div class="browser-section-header" style="margin-top: 14px;">
+                        <span>MEDIA CLIPS & SUBTITLES IN DIRECTORY</span>
+                    </div>
+                    <div class="browser-media-grid" id="browserFilesList"></div>
                 </div>
             </div>
         </div>

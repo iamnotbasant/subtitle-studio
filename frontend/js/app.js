@@ -515,10 +515,26 @@ async function populateFolderVideosDropdown(videoOrFolderPath) {
     }
 }
 
-function openFolderBrowserModal(initialPath = '') {
+// ==========================================
+// 📂 PRO MEDIA & SUBTITLE ASSET EXPLORER
+// ==========================================
+let explorerState = {
+    currentDir: '',
+    bookmarks: [],
+    videos: [],
+    srtFiles: [],
+    subdirs: [],
+    filter: 'all',
+    selectedPaths: new Set(),
+    onSelectCallback: null
+};
+
+function openFolderBrowserModal(initialPath = '', callback = null) {
     const modal = document.getElementById('folderBrowserModal');
     if (modal) {
         modal.style.display = 'flex';
+        explorerState.onSelectCallback = callback;
+        explorerState.selectedPaths.clear();
         loadFolderBrowserContent(initialPath || currentLoadedVideoPath || '');
     }
 }
@@ -528,103 +544,264 @@ function closeFolderBrowserModal() {
     if (modal) modal.style.display = 'none';
 }
 
+function setExplorerFilter(filterType) {
+    explorerState.filter = filterType;
+    document.querySelectorAll('.filter-pill').forEach(pill => pill.classList.remove('active'));
+    const activePill = document.getElementById(`filter${filterType.charAt(0).toUpperCase() + filterType.slice(1)}`) ||
+                       document.getElementById(`filterAllMedia`);
+    if (activePill) activePill.classList.add('active');
+    renderExplorerMediaCards();
+}
+
 async function loadFolderBrowserContent(targetPath = '') {
     const subdirsContainer = document.getElementById('browserSubdirsList');
     const filesContainer = document.getElementById('browserFilesList');
     const pathInput = document.getElementById('browserCurrentPathInput');
     const btnUp = document.getElementById('btnBrowserGoUp');
+    const bookmarksBar = document.getElementById('browserBookmarksBar');
 
-    if (subdirsContainer) subdirsContainer.innerHTML = '<div class="console-line info" style="grid-column: 1/-1;">Loading folder...</div>';
-    if (filesContainer) filesContainer.innerHTML = '';
+    if (subdirsContainer) subdirsContainer.innerHTML = '<div class="console-line info" style="grid-column: 1/-1;">Scanning folder...</div>';
+    if (filesContainer) filesContainer.innerHTML = '<div class="console-line info" style="grid-column: 1/-1;">Loading video and subtitle assets...</div>';
 
     try {
         const res = await fetch(`/api/browse_files?folder_path=${encodeURIComponent(targetPath)}`);
         const data = await res.json();
 
-        if (!res.ok) {
+        if (!res.ok || !data.success) {
             if (subdirsContainer) subdirsContainer.innerHTML = `<div class="console-line error" style="grid-column: 1/-1;">Error: ${data.error || 'Failed to browse folder'}</div>`;
+            if (filesContainer) filesContainer.innerHTML = '';
             return;
         }
 
-        if (pathInput) pathInput.value = data.current_dir || targetPath;
+        explorerState.currentDir = data.current_dir || targetPath;
+        explorerState.bookmarks = data.bookmarks || [];
+        explorerState.videos = data.video_files || data.videos || [];
+        explorerState.srtFiles = data.srt_files || [];
+        explorerState.subdirs = data.subdirs || [];
 
+        if (pathInput) pathInput.value = explorerState.currentDir;
+
+        // Update Counter badges
+        const vidCountBadge = document.getElementById('explorerVideoCount');
+        const srtCountBadge = document.getElementById('explorerSrtCount');
+        if (vidCountBadge) vidCountBadge.textContent = explorerState.videos.length;
+        if (srtCountBadge) srtCountBadge.textContent = explorerState.srtFiles.length;
+
+        // 1. Render Bookmarks Bar
+        if (bookmarksBar && explorerState.bookmarks.length > 0) {
+            bookmarksBar.innerHTML = '';
+            explorerState.bookmarks.forEach(bm => {
+                const chip = document.createElement('button');
+                chip.className = `bookmark-chip ${bm.path === explorerState.currentDir ? 'active' : ''}`;
+                chip.innerHTML = `
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <span>${bm.label}</span>
+                `;
+                chip.addEventListener('click', () => loadFolderBrowserContent(bm.path));
+                bookmarksBar.appendChild(chip);
+            });
+        }
+
+        // Up navigation button
         if (btnUp) {
             btnUp.onclick = () => {
-                if (data.parent_dir) {
-                    loadFolderBrowserContent(data.parent_dir);
-                }
+                if (data.parent_dir) loadFolderBrowserContent(data.parent_dir);
             };
             btnUp.disabled = !data.parent_dir || data.parent_dir === data.current_dir;
         }
 
-        // 1. Render Subdirectories
+        // 2. Render Subdirectories
         if (subdirsContainer) {
             subdirsContainer.innerHTML = '';
-            if (data.subdirs && data.subdirs.length > 0) {
-                data.subdirs.forEach(sub => {
+            if (explorerState.subdirs && explorerState.subdirs.length > 0) {
+                explorerState.subdirs.forEach(sub => {
                     const item = document.createElement('div');
                     item.className = 'browser-folder-item';
                     item.title = `Open ${sub.name}`;
                     item.innerHTML = `
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                        <span>${sub.name}</span>
+                        <div style="display:flex;align-items:center;gap:6px;overflow:hidden;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="#3b82f6"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sub.name}</span>
+                        </div>
+                        <span class="folder-count-badge">${sub.video_count || 0} vids</span>
                     `;
-                    item.addEventListener('click', () => {
-                        loadFolderBrowserContent(sub.path);
-                    });
+                    item.addEventListener('click', () => loadFolderBrowserContent(sub.path));
                     subdirsContainer.appendChild(item);
                 });
             } else {
-                subdirsContainer.innerHTML = '<div style="font-size:10px;color:var(--text-muted);grid-column:1/-1;">(No subdirectories)</div>';
+                subdirsContainer.innerHTML = '<div style="font-size:10.5px;color:var(--text-muted);grid-column:1/-1;">(No subdirectories)</div>';
             }
         }
 
-        // 2. Render Video Files
-        if (filesContainer) {
-            filesContainer.innerHTML = '';
-            if (data.videos && data.videos.length > 0) {
-                data.videos.forEach(vid => {
-                    const row = document.createElement('div');
-                    row.className = 'browser-video-row';
-                    row.innerHTML = `
-                        <div class="browser-video-name" title="${vid.path}">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                            <span>${vid.name}</span>
-                            <span class="browser-video-meta">(${vid.size_mb} MB)</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <button class="btn-xs copy-path-btn" title="Copy file path">Copy Path</button>
-                            <button class="btn-xs btn-white select-video-btn" title="Load this video into editor">Load Video</button>
-                        </div>
-                    `;
-
-                    row.querySelector('.copy-path-btn').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        navigator.clipboard.writeText(vid.path);
-                        logExec(`Copied path to clipboard: ${vid.path}`, "success");
-                    });
-
-                    row.querySelector('.select-video-btn').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        closeFolderBrowserModal();
-                        loadColabStream(vid.path);
-                    });
-
-                    row.addEventListener('click', () => {
-                        closeFolderBrowserModal();
-                        loadColabStream(vid.path);
-                    });
-
-                    filesContainer.appendChild(row);
-                });
-            } else {
-                filesContainer.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:8px 0;">No video files (.mp4, .mov, .mkv, .webm) in this folder.</div>';
-            }
-        }
+        // 3. Render Visual Media Cards
+        renderExplorerMediaCards();
 
     } catch (err) {
         if (subdirsContainer) subdirsContainer.innerHTML = `<div class="console-line error" style="grid-column:1/-1;">Network error browsing folder: ${err}</div>`;
     }
+}
+
+function renderExplorerMediaCards() {
+    const filesContainer = document.getElementById('browserFilesList');
+    if (!filesContainer) return;
+
+    filesContainer.innerHTML = '';
+
+    let itemsToShow = [];
+    if (explorerState.filter === 'videos') {
+        itemsToShow = explorerState.videos.map(v => ({ ...v, mediaType: 'video' }));
+    } else if (explorerState.filter === 'subtitles') {
+        itemsToShow = explorerState.srtFiles.map(s => ({ ...s, mediaType: 'srt' }));
+    } else {
+        itemsToShow = [
+            ...explorerState.videos.map(v => ({ ...v, mediaType: 'video' })),
+            ...explorerState.srtFiles.map(s => ({ ...s, mediaType: 'srt' }))
+        ];
+    }
+
+    if (itemsToShow.length === 0) {
+        filesContainer.innerHTML = `
+            <div style="grid-column: 1/-1; padding: 24px 0; text-align: center; color: var(--text-muted);">
+                <div style="font-size: 13px; font-weight: 600; color: #ffffff; margin-bottom: 4px;">No media files found in this directory</div>
+                <div style="font-size: 11px;">Upload videos/SRTs using "Upload to Server" above or navigate to <strong>/content</strong> or <strong>Google Drive</strong>.</div>
+            </div>
+        `;
+        return;
+    }
+
+    itemsToShow.forEach(item => {
+        const isVideo = item.mediaType === 'video';
+        const card = document.createElement('div');
+        card.className = `media-asset-card ${explorerState.selectedPaths.has(item.path) ? 'selected' : ''}`;
+        
+        card.innerHTML = `
+            <div class="card-top-row">
+                <span class="format-badge ${isVideo ? 'fmt-mp4' : 'fmt-srt'}">${item.ext || (isVideo ? '.mp4' : '.srt')}</span>
+                <span class="card-size-meta">${item.size_mb ? item.size_mb + ' MB' : (item.size_kb ? item.size_kb + ' KB' : '')}</span>
+                ${isVideo ? `<input type="checkbox" class="explorer-card-check" ${explorerState.selectedPaths.has(item.path) ? 'checked' : ''} style="cursor:pointer;">` : ''}
+            </div>
+            <div class="card-main-body">
+                <div class="card-icon-box">
+                    ${isVideo ? 
+                        `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>` : 
+                        `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`
+                    }
+                </div>
+                <div class="card-title-text" title="${item.path}">${item.name}</div>
+            </div>
+            <div class="card-footer-tags">
+                ${isVideo && item.has_matching_srt ? 
+                    `<span class="matching-srt-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Has Matching .SRT</span>` : 
+                    `<span>${isVideo ? 'Source Video' : 'Subtitle Script'}</span>`
+                }
+            </div>
+            <div class="card-actions-hover">
+                ${isVideo ? `
+                    <button class="btn-card-action btn-card-load btn-load-single" title="Load into Single Studio">🎬 Load</button>
+                    <button class="btn-card-action btn-card-bulk btn-add-batch" title="Add to Bulk Studio">➕ Bulk</button>
+                ` : `
+                    <button class="btn-card-action btn-card-load btn-load-srt-single" title="Import Subtitle into Single Studio">📥 Import SRT</button>
+                `}
+                <button class="btn-card-action btn-card-bulk btn-copy-card-path" title="Copy exact path">📋</button>
+            </div>
+        `;
+
+        // Checkbox click
+        const check = card.querySelector('.explorer-card-check');
+        if (check) {
+            check.addEventListener('change', (e) => {
+                e.stopPropagation();
+                if (check.checked) {
+                    explorerState.selectedPaths.add(item.path);
+                    card.classList.add('selected');
+                } else {
+                    explorerState.selectedPaths.delete(item.path);
+                    card.classList.remove('selected');
+                }
+            });
+        }
+
+        // Action Buttons
+        const btnSingle = card.querySelector('.btn-load-single');
+        if (btnSingle) {
+            btnSingle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeFolderBrowserModal();
+                loadColabStream(item.path);
+            });
+        }
+
+        const btnBatch = card.querySelector('.btn-add-batch');
+        if (btnBatch) {
+            btnBatch.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof batchState !== 'undefined') {
+                    batchState.items.push({
+                        id: 'batch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                        videoName: item.name,
+                        videoPath: item.path,
+                        srtName: null,
+                        srtPath: null,
+                        captions: [],
+                        status: 'missing',
+                        progress: 0,
+                        fileObject: null
+                    });
+                    if (typeof autoMatchAllBatchItems === 'function') autoMatchAllBatchItems();
+                    if (typeof renderBatchTable === 'function') renderBatchTable();
+                    logExec(`Added "${item.name}" to Bulk Studio matrix.`, "success");
+                    switchStudioMode('bulk');
+                    closeFolderBrowserModal();
+                }
+            });
+        }
+
+        const btnSrt = card.querySelector('.btn-load-srt-single');
+        if (btnSrt) {
+            btnSrt.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                try {
+                    const srtRes = await fetch('/api/parse_srt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ srt_path: item.path })
+                    });
+                    const srtData = await srtRes.json();
+                    if (srtData.captions && srtData.captions.length > 0) {
+                        captionsData = srtData.captions;
+                        if (typeof renderCaptionsList === 'function') renderCaptionsList();
+                        if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
+                        if (typeof applyStyling === 'function') applyStyling();
+                        logExec(`Loaded ${srtData.count} subtitle lines from ${item.name}!`, "success");
+                        closeFolderBrowserModal();
+                    }
+                } catch (err) {
+                    logExec(`Failed to parse SRT: ${err}`, "error");
+                }
+            });
+        }
+
+        const btnCopy = card.querySelector('.btn-copy-card-path');
+        if (btnCopy) {
+            btnCopy.addEventListener('click', (e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(item.path);
+                logExec(`Copied path: ${item.path}`, "success");
+            });
+        }
+
+        card.addEventListener('click', () => {
+            if (explorerState.onSelectCallback) {
+                explorerState.onSelectCallback(item.path, false);
+                closeFolderBrowserModal();
+            } else if (isVideo) {
+                closeFolderBrowserModal();
+                loadColabStream(item.path);
+            }
+        });
+
+        filesContainer.appendChild(card);
+    });
 }
 
 // ==========================================
@@ -1264,6 +1441,122 @@ function initAppListeners() {
             if (e.key === 'Enter') {
                 loadFolderBrowserContent(e.target.value.trim());
             }
+        });
+    }
+
+    // Pro Media Explorer Multi-Select & Batch Actions
+    const btnSelectAll = document.getElementById('btnExplorerSelectAll');
+    if (btnSelectAll) {
+        btnSelectAll.addEventListener('click', () => {
+            const allSelected = explorerState.selectedPaths.size >= explorerState.videos.length && explorerState.videos.length > 0;
+            if (allSelected) {
+                explorerState.selectedPaths.clear();
+            } else {
+                explorerState.videos.forEach(v => explorerState.selectedPaths.add(v.path));
+            }
+            renderExplorerMediaCards();
+        });
+    }
+
+    const btnAddSelected = document.getElementById('btnExplorerAddSelectedToBatch');
+    if (btnAddSelected) {
+        btnAddSelected.addEventListener('click', () => {
+            if (explorerState.selectedPaths.size === 0) {
+                alert("Please select at least one video checkbox.");
+                return;
+            }
+            let added = 0;
+            explorerState.selectedPaths.forEach(p => {
+                const vid = explorerState.videos.find(v => v.path === p);
+                if (vid && typeof batchState !== 'undefined') {
+                    batchState.items.push({
+                        id: 'batch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                        videoName: vid.name,
+                        videoPath: vid.path,
+                        srtName: null,
+                        srtPath: null,
+                        captions: [],
+                        status: 'missing',
+                        progress: 0,
+                        fileObject: null
+                    });
+                    added++;
+                }
+            });
+            if (typeof autoMatchAllBatchItems === 'function') autoMatchAllBatchItems();
+            if (typeof renderBatchTable === 'function') renderBatchTable();
+            logExec(`Added ${added} selected videos to Bulk Studio.`, "success");
+            switchStudioMode('bulk');
+            closeFolderBrowserModal();
+        });
+    }
+
+    const btnImportFolder = document.getElementById('btnExplorerImportFolderToBatch');
+    if (btnImportFolder) {
+        btnImportFolder.addEventListener('click', async () => {
+            const targetDir = explorerState.currentDir;
+            if (!targetDir) return;
+            closeFolderBrowserModal();
+            switchStudioMode('bulk');
+            logExec(`Scanning entire folder: ${targetDir}...`, "info");
+            try {
+                const res = await fetch('/api/batch_scan_pairs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ directory_path: targetDir })
+                });
+                const data = await res.json();
+                if (data.pairs && data.pairs.length > 0) {
+                    data.pairs.forEach(p => {
+                        batchState.items.push({
+                            id: 'batch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                            videoName: p.video_name,
+                            videoPath: p.video_path,
+                            srtName: p.paired_srt_name || null,
+                            srtPath: p.paired_srt_path || null,
+                            captions: p.captions || [],
+                            status: p.paired_srt_name ? 'ready' : 'missing',
+                            progress: 0,
+                            fileObject: null
+                        });
+                    });
+                    if (typeof autoMatchAllBatchItems === 'function') autoMatchAllBatchItems();
+                    if (typeof renderBatchTable === 'function') renderBatchTable();
+                    logExec(`Imported ${data.pairs.length} videos from ${targetDir} with auto-matched subtitles!`, "success");
+                } else {
+                    alert("No video files found in this folder to import.");
+                }
+            } catch (err) {
+                logExec(`Error importing folder: ${err}`, "error");
+            }
+        });
+    }
+
+    // Media Explorer Server Upload Handler
+    const uploadInput = document.getElementById('explorerUploadInput');
+    if (uploadInput) {
+        uploadInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            logExec(`Uploading ${files.length} file(s) to server...`, "info");
+            for (let f of files) {
+                const formData = new FormData();
+                formData.append('file', f);
+                try {
+                    const uRes = await fetch('/api/upload_media', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const uData = await uRes.json();
+                    if (uData.success) {
+                        logExec(`Uploaded: ${uData.filename} (${uData.size_mb} MB)`, "success");
+                    }
+                } catch (err) {
+                    logExec(`Upload failed for ${f.name}: ${err}`, "error");
+                }
+            }
+            loadFolderBrowserContent(explorerState.currentDir);
+            uploadInput.value = '';
         });
     }
 
