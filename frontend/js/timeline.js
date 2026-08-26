@@ -1,12 +1,13 @@
 /**
  * Hardware-Accelerated Interactive Timeline Engine v8.2.0
- * Multi-Lane Overlap Layout, Anchored Smooth Zooming, Sub-Frame Trimming & Scrubbing
+ * Multi-Lane Overlap Layout, Magnetic Snapping, Frame-Accurate Sub-Frame Trimming & Nudging
  */
 
 let zoomScale = 100;
 let isDraggingClip = false;
 let isTrimmingClip = false;
 let isScrubbingTimeline = false;
+let isSnapEnabled = true;
 let currentDraggedClipId = null;
 let currentTrimEdge = null;
 let dragStartX = 0;
@@ -16,6 +17,7 @@ let dragOriginalEnd = 0;
 let cachedPlayheadNode = null;
 let cachedTimecodeNode = null;
 let cachedVideoNode = null;
+let cachedSnapGuide = null;
 
 function secondsToPixels(sec) {
     // 100% zoom = 45px per second
@@ -44,6 +46,64 @@ function formatRulerTime(sec) {
     }
     const dec = Number.isInteger(sec) ? `${sec}s` : `${sec.toFixed(1)}s`;
     return dec;
+}
+
+function toggleMagneticSnap() {
+    isSnapEnabled = !isSnapEnabled;
+    const btn = document.getElementById('btnToggleSnap');
+    if (btn) btn.classList.toggle('active', isSnapEnabled);
+    if (typeof logExec === 'function') logExec(`Magnetic Snapping: ${isSnapEnabled ? 'ON' : 'OFF'}`, "info");
+}
+
+function nudgeActiveClip(frames = 1) {
+    if (!activeCaptionId) return;
+    const cap = captionsData.find(c => c.id === activeCaptionId);
+    if (!cap) return;
+
+    if (typeof pushHistoryState === 'function') pushHistoryState();
+    const fps = 30.0;
+    const deltaSec = frames / fps;
+    const dur = cap.end - cap.start;
+
+    cap.start = Math.max(0, parseFloat((cap.start + deltaSec).toFixed(3)));
+    cap.end = parseFloat((cap.start + dur).toFixed(3));
+
+    renderTimelineTrack();
+    if (typeof renderCaptionsList === 'function') renderCaptionsList();
+    if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
+}
+
+function getSnapTargets(excludeId = null) {
+    const targets = [];
+    const { video } = getPlayheadNodes();
+    if (video && !isNaN(video.currentTime)) {
+        targets.push(video.currentTime);
+    }
+    captionsData.forEach(c => {
+        if (c.id !== excludeId) {
+            targets.push(c.start);
+            targets.push(c.end);
+        }
+    });
+    return targets;
+}
+
+function showSnapGuide(snapPx) {
+    const trackArea = document.getElementById('timelineTrackArea');
+    if (!trackArea) return;
+    if (!cachedSnapGuide) {
+        cachedSnapGuide = document.createElement('div');
+        cachedSnapGuide.className = 'snap-guide-line';
+        trackArea.appendChild(cachedSnapGuide);
+    }
+    cachedSnapGuide.style.display = 'block';
+    cachedSnapGuide.style.left = `${snapPx}px`;
+}
+
+function hideSnapGuide() {
+    if (cachedSnapGuide) {
+        cachedSnapGuide.style.display = 'none';
+    }
 }
 
 function renderTimelineTrack() {
@@ -131,7 +191,7 @@ function renderTimelineTrack() {
         clip.dataset.id = item.id;
 
         const leftPx = secondsToPixels(item.start);
-        const widthPx = Math.max(22, secondsToPixels(item.end - item.start));
+        const widthPx = Math.max(16, secondsToPixels(item.end - item.start));
         const topPx = 4 + (laneIndex * laneHeight);
 
         clip.style.left = `${leftPx}px`;
@@ -144,12 +204,12 @@ function renderTimelineTrack() {
         }
 
         clip.innerHTML = `
-            <div class="trim-handle left-handle" data-id="${item.id}" data-edge="left" title="Drag to trim start time"></div>
+            <div class="trim-handle left-handle" data-id="${item.id}" data-edge="left" title="Trim start time"></div>
             <div class="clip-content">
                 <span class="clip-idx-tag">#${index + 1}</span>
                 <span class="clip-text">${item.text || "(empty)"}</span>
             </div>
-            <div class="trim-handle right-handle" data-id="${item.id}" data-edge="right" title="Drag to trim end time"></div>
+            <div class="trim-handle right-handle" data-id="${item.id}" data-edge="right" title="Trim end time"></div>
         `;
 
         clip.addEventListener('mousedown', (e) => {
@@ -157,6 +217,7 @@ function renderTimelineTrack() {
             if (e.target.classList.contains('trim-handle')) {
                 isTrimmingClip = true;
                 currentTrimEdge = e.target.dataset.edge;
+                e.target.classList.add('active-trim');
             } else {
                 isDraggingClip = true;
             }
@@ -265,7 +326,13 @@ function initTimelineEvents() {
     const zoomVal = document.getElementById('zoomVal');
     const ruler = document.getElementById('timeRuler');
     const trackArea = document.getElementById('timelineTrackArea');
-    const { video } = getPlayheadNodes();
+    const btnToggleSnapEl = document.getElementById('btnToggleSnap');
+    const btnNudgeLeftEl = document.getElementById('btnNudgeClipLeft');
+    const btnNudgeRightEl = document.getElementById('btnNudgeClipRight');
+
+    if (btnToggleSnapEl) btnToggleSnapEl.addEventListener('click', toggleMagneticSnap);
+    if (btnNudgeLeftEl) btnNudgeLeftEl.addEventListener('click', () => nudgeActiveClip(-1));
+    if (btnNudgeRightEl) btnNudgeRightEl.addEventListener('click', () => nudgeActiveClip(1));
 
     if (zoomInput) {
         zoomInput.addEventListener('input', (e) => {
@@ -276,7 +343,6 @@ function initTimelineEvents() {
     }
 
     if (trackArea) {
-        // Track user scrolling to prevent glitching / fighting with auto-scroll
         trackArea.addEventListener('scroll', () => {
             lastUserTimelineInteractionTime = Date.now();
         }, { passive: true });
@@ -300,23 +366,20 @@ function initTimelineEvents() {
                 const newScrollLeft = secondsToPixels(timeUnderCursor) - mouseOffsetPx;
                 trackArea.scrollLeft = Math.max(0, newScrollLeft);
             } else {
-                // Smooth horizontal scrolling on mouse wheel
                 e.preventDefault();
                 const scrollDelta = (Math.abs(e.deltaX) > Math.abs(e.deltaY)) ? e.deltaX : e.deltaY * 1.2;
                 trackArea.scrollLeft += scrollDelta;
             }
         }, { passive: false });
 
-        // Direct Click & Drag to Move Playhead anywhere on the timeline track background
         trackArea.addEventListener('mousedown', (e) => {
             if (e.target.closest('.timeline-clip') || e.target.closest('.trim-handle')) {
-                return; // Clip dragging handles itself
+                return;
             }
-            // Check if clicking in the bottom scrollbar area (bottom 16px)
             const rect = trackArea.getBoundingClientRect();
             if (e.clientY > rect.bottom - 16) {
                 lastUserTimelineInteractionTime = Date.now();
-                return; // User is interacting with scrollbar
+                return;
             }
             isScrubbingTimeline = true;
             lastUserTimelineInteractionTime = Date.now();
@@ -350,16 +413,72 @@ function initTimelineEvents() {
         const capItem = captionsData.find(c => c.id === currentDraggedClipId);
         if (!capItem) return;
 
+        const snapThresholdSec = pixelsToSeconds(8);
+        const snapTargets = isSnapEnabled ? getSnapTargets(currentDraggedClipId) : [];
+        let didSnap = false;
+        let activeSnapTime = null;
+
         if (isDraggingClip) {
             const dur = dragOriginalEnd - dragOriginalStart;
-            capItem.start = Math.max(0, parseFloat((dragOriginalStart + deltaSec).toFixed(2)));
-            capItem.end = parseFloat((capItem.start + dur).toFixed(2));
+            let proposedStart = Math.max(0, dragOriginalStart + deltaSec);
+            let proposedEnd = proposedStart + dur;
+
+            // Check magnetic snapping for start or end edge
+            if (isSnapEnabled) {
+                for (const t of snapTargets) {
+                    if (Math.abs(proposedStart - t) < snapThresholdSec) {
+                        proposedStart = t;
+                        proposedEnd = proposedStart + dur;
+                        didSnap = true;
+                        activeSnapTime = t;
+                        break;
+                    }
+                    if (Math.abs(proposedEnd - t) < snapThresholdSec) {
+                        proposedEnd = t;
+                        proposedStart = Math.max(0, proposedEnd - dur);
+                        didSnap = true;
+                        activeSnapTime = t;
+                        break;
+                    }
+                }
+            }
+
+            capItem.start = parseFloat(proposedStart.toFixed(3));
+            capItem.end = parseFloat(proposedEnd.toFixed(3));
         } else if (isTrimmingClip) {
             if (currentTrimEdge === 'left') {
-                capItem.start = Math.min(capItem.end - 0.2, Math.max(0, parseFloat((dragOriginalStart + deltaSec).toFixed(2))));
+                let proposedStart = Math.min(capItem.end - 0.1, Math.max(0, dragOriginalStart + deltaSec));
+                if (isSnapEnabled) {
+                    for (const t of snapTargets) {
+                        if (Math.abs(proposedStart - t) < snapThresholdSec && t < capItem.end - 0.1) {
+                            proposedStart = t;
+                            didSnap = true;
+                            activeSnapTime = t;
+                            break;
+                        }
+                    }
+                }
+                capItem.start = parseFloat(proposedStart.toFixed(3));
             } else if (currentTrimEdge === 'right') {
-                capItem.end = Math.max(capItem.start + 0.2, parseFloat((dragOriginalEnd + deltaSec).toFixed(2)));
+                let proposedEnd = Math.max(capItem.start + 0.1, dragOriginalEnd + deltaSec);
+                if (isSnapEnabled) {
+                    for (const t of snapTargets) {
+                        if (Math.abs(proposedEnd - t) < snapThresholdSec && t > capItem.start + 0.1) {
+                            proposedEnd = t;
+                            didSnap = true;
+                            activeSnapTime = t;
+                            break;
+                        }
+                    }
+                }
+                capItem.end = parseFloat(proposedEnd.toFixed(3));
             }
+        }
+
+        if (didSnap && activeSnapTime !== null) {
+            showSnapGuide(secondsToPixels(activeSnapTime));
+        } else {
+            hideSnapGuide();
         }
 
         if (!timelineMoveRaf) {
@@ -374,6 +493,8 @@ function initTimelineEvents() {
     });
 
     window.addEventListener('mouseup', () => {
+        hideSnapGuide();
+        document.querySelectorAll('.trim-handle.active-trim').forEach(h => h.classList.remove('active-trim'));
         if (isDraggingClip || isTrimmingClip) {
             if (typeof sortCaptionsChronologically === 'function') sortCaptionsChronologically();
             renderCaptionsList();

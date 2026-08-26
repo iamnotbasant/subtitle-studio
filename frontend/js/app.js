@@ -95,6 +95,31 @@ function formatPlayerTime(seconds) {
 // ==========================================
 // 📹 VIDEO STREAM & PROXY MANAGER
 // ==========================================
+let currentPreviewQuality = '480p';
+
+function changePreviewQuality(newQuality) {
+    currentPreviewQuality = newQuality;
+    const video = document.getElementById('mainVideoPlayer');
+    const select = document.getElementById('previewQualitySelect');
+    if (select && select.value !== newQuality) select.value = newQuality;
+
+    if (!video || !currentLoadedVideoPath) return;
+
+    const curTime = video.currentTime || 0;
+    const wasPlaying = !video.paused;
+
+    logExec(`Switching preview playback proxy quality to: ${newQuality.toUpperCase()}...`, "info");
+    const streamUrl = `/api/stream?video_path=${encodeURIComponent(currentLoadedVideoPath)}&quality=${newQuality}`;
+    video.src = streamUrl;
+    video.load();
+
+    video.onloadedmetadata = () => {
+        video.currentTime = curTime;
+        if (wasPlaying) video.play().catch(() => {});
+        logExec(`Preview quality switched to ${newQuality.toUpperCase()} successfully.`, "success");
+    };
+}
+
 async function loadColabStream(videoPath) {
     if (!videoPath || !videoPath.trim()) {
         logExec("Please specify a valid video file path or Google Drive link.", "warn");
@@ -104,7 +129,9 @@ async function loadColabStream(videoPath) {
     const cleanPath = videoPath.trim();
     const video = document.getElementById('mainVideoPlayer');
     const spinner = document.getElementById('videoLoadingSpinner');
+    const pathInput = document.getElementById('videoPathInput');
 
+    if (pathInput) pathInput.value = cleanPath;
     if (spinner) spinner.style.display = 'flex';
     logExec(`Validating source video path: ${cleanPath}...`, "info");
 
@@ -129,7 +156,7 @@ async function loadColabStream(videoPath) {
         currentLoadedVideoPath = cleanPath;
         logExec(`Source video validated! Resolution: ${data.width}x${data.height}, FPS: ${data.fps}, Duration: ${data.duration}s (${data.size_mb} MB)`, "success");
 
-        const streamUrl = `/api/stream?video_path=${encodeURIComponent(cleanPath)}`;
+        const streamUrl = `/api/stream?video_path=${encodeURIComponent(cleanPath)}&quality=${currentPreviewQuality}`;
         video.src = streamUrl;
         video.load();
 
@@ -141,6 +168,7 @@ async function loadColabStream(videoPath) {
             if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
             if (typeof updatePlayheadPosition === 'function') updatePlayheadPosition();
             if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
+            populateFolderVideosDropdown(cleanPath);
         };
 
         video.onerror = () => {
@@ -304,12 +332,17 @@ function startProgressPolling() {
             const fill = document.getElementById('renderProgressFill');
             const percentText = document.getElementById('renderProgressPercent');
             const statusText = document.getElementById('renderStatusText');
-            const stageText = document.getElementById('renderStageText');
+            const stageBadge = document.getElementById('renderStageBadge');
             const speedText = document.getElementById('renderSpeedText');
             const etaText = document.getElementById('renderEtaText');
             const framesText = document.getElementById('renderFramesText');
+            const stageText = document.getElementById('renderStageText');
             const errorBox = document.getElementById('renderErrorBox');
             const errorMsg = document.getElementById('renderErrorMsg');
+
+            const stepSubtitles = document.getElementById('stepSubtitles');
+            const stepEncode = document.getElementById('stepEncode');
+            const stepFinalize = document.getElementById('stepFinalize');
 
             const pctVal = Math.min(100, Math.max(0, parseFloat(data.percent || 0)));
 
@@ -318,6 +351,7 @@ function startProgressPolling() {
                 percentText.textContent = pctVal >= 100 ? "100%" : (pctVal > 0 ? `${pctVal.toFixed(1)}%` : "0%");
             }
             if (statusText && data.status) statusText.textContent = data.status;
+            if (stageBadge && data.stage) stageBadge.textContent = data.stage.toUpperCase();
             if (stageText && data.stage) stageText.textContent = data.stage;
             if (speedText && data.speed) speedText.textContent = data.speed;
             if (etaText && data.eta) etaText.textContent = data.eta;
@@ -331,7 +365,24 @@ function startProgressPolling() {
                 }
             }
 
-            if (data.percent >= 100 && data.stage === 'Done') {
+            // Stepper progression
+            if (stepSubtitles && stepEncode && stepFinalize) {
+                if (pctVal < 20 || (data.stage && data.stage.includes('Subtitle'))) {
+                    stepSubtitles.className = 'pipeline-step active';
+                    stepEncode.className = 'pipeline-step';
+                    stepFinalize.className = 'pipeline-step';
+                } else if (pctVal < 95) {
+                    stepSubtitles.className = 'pipeline-step done';
+                    stepEncode.className = 'pipeline-step active';
+                    stepFinalize.className = 'pipeline-step';
+                } else {
+                    stepSubtitles.className = 'pipeline-step done';
+                    stepEncode.className = 'pipeline-step done';
+                    stepFinalize.className = 'pipeline-step active';
+                }
+            }
+
+            if (data.percent >= 100 && (data.stage === 'Done' || data.stage === 'Export' || data.status.includes('completed'))) {
                 if (isHandledCompletion) return;
                 isHandledCompletion = true;
 
@@ -340,7 +391,10 @@ function startProgressPolling() {
                     renderPollInterval = null;
                 }
 
-                if (statusText) statusText.textContent = "Render completed successfully!";
+                if (stepSubtitles) stepSubtitles.className = 'pipeline-step done';
+                if (stepEncode) stepEncode.className = 'pipeline-step done';
+                if (stepFinalize) stepFinalize.className = 'pipeline-step done';
+                if (statusText) statusText.textContent = "Render & export completed successfully!";
                 if (percentText) percentText.textContent = "100%";
                 if (fill) fill.style.width = "100%";
 
@@ -349,7 +403,7 @@ function startProgressPolling() {
                 setTimeout(() => {
                     showRenderModal(false);
                     openExportsGalleryModal();
-                }, 750);
+                }, 800);
             } else if (data.stage === 'Failed') {
                 if (renderPollInterval) {
                     clearInterval(renderPollInterval);
@@ -375,20 +429,30 @@ function showRenderModal(show) {
         const fill = document.getElementById('renderProgressFill');
         const percentText = document.getElementById('renderProgressPercent');
         const statusText = document.getElementById('renderStatusText');
+        const stageBadge = document.getElementById('renderStageBadge');
         const stageText = document.getElementById('renderStageText');
         const speedText = document.getElementById('renderSpeedText');
         const etaText = document.getElementById('renderEtaText');
         const framesText = document.getElementById('renderFramesText');
         const errorBox = document.getElementById('renderErrorBox');
 
+        const stepSubtitles = document.getElementById('stepSubtitles');
+        const stepEncode = document.getElementById('stepEncode');
+        const stepFinalize = document.getElementById('stepFinalize');
+
         if (fill) fill.style.width = '0%';
         if (percentText) percentText.textContent = '0%';
-        if (statusText) statusText.textContent = 'Initializing render engine...';
-        if (stageText) stageText.textContent = 'Starting...';
-        if (speedText) speedText.textContent = '0x';
+        if (statusText) statusText.textContent = 'Preparing render pipeline...';
+        if (stageBadge) stageBadge.textContent = 'INITIALIZING';
+        if (stageText) stageText.textContent = 'Stage 1/4';
+        if (speedText) speedText.textContent = '0.0x';
         if (etaText) etaText.textContent = '--';
-        if (framesText) framesText.textContent = '--';
+        if (framesText) framesText.textContent = '0 / 0';
         if (errorBox) errorBox.style.display = 'none';
+
+        if (stepSubtitles) stepSubtitles.className = 'pipeline-step active';
+        if (stepEncode) stepEncode.className = 'pipeline-step';
+        if (stepFinalize) stepFinalize.className = 'pipeline-step';
 
         const btnDismiss = document.getElementById('btnDismissRenderError');
         if (btnDismiss) {
@@ -402,6 +466,160 @@ function showRenderModal(show) {
             clearInterval(renderPollInterval);
             renderPollInterval = null;
         }
+    }
+}
+
+// ==========================================
+// 📂 SIBLING FOLDER VIDEOS & DIRECTORY BROWSER
+// ==========================================
+async function populateFolderVideosDropdown(videoOrFolderPath) {
+    const box = document.getElementById('folderVideosBox');
+    const select = document.getElementById('folderVideosSelect');
+    if (!box || !select) return;
+
+    try {
+        let folderPath = videoOrFolderPath;
+        if (folderPath.includes('/') || folderPath.includes('\\')) {
+            const sep = folderPath.includes('/') ? '/' : '\\';
+            const lastIdx = folderPath.lastIndexOf(sep);
+            if (lastIdx !== -1 && (folderPath.endsWith('.mp4') || folderPath.endsWith('.mov') || folderPath.endsWith('.mkv') || folderPath.endsWith('.webm'))) {
+                folderPath = folderPath.substring(0, lastIdx);
+            }
+        }
+
+        const res = await fetch(`/api/browse_files?folder_path=${encodeURIComponent(folderPath)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.videos && data.videos.length > 0) {
+            select.innerHTML = '<option value="" disabled>Select from folder...</option>';
+            data.videos.forEach(vid => {
+                const opt = document.createElement('option');
+                opt.value = vid.path;
+                opt.textContent = `${vid.name} (${vid.size_mb} MB)`;
+                if (vid.path === currentLoadedVideoPath || vid.name === currentLoadedVideoPath) {
+                    opt.selected = true;
+                }
+                select.appendChild(opt);
+            });
+            box.style.display = 'flex';
+        } else {
+            box.style.display = 'none';
+        }
+    } catch (err) {
+        console.error("Folder videos dropdown population error:", err);
+    }
+}
+
+function openFolderBrowserModal(initialPath = '') {
+    const modal = document.getElementById('folderBrowserModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        loadFolderBrowserContent(initialPath || currentLoadedVideoPath || '');
+    }
+}
+
+function closeFolderBrowserModal() {
+    const modal = document.getElementById('folderBrowserModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function loadFolderBrowserContent(targetPath = '') {
+    const subdirsContainer = document.getElementById('browserSubdirsList');
+    const filesContainer = document.getElementById('browserFilesList');
+    const pathInput = document.getElementById('browserCurrentPathInput');
+    const btnUp = document.getElementById('btnBrowserGoUp');
+
+    if (subdirsContainer) subdirsContainer.innerHTML = '<div class="console-line info" style="grid-column: 1/-1;">Loading folder...</div>';
+    if (filesContainer) filesContainer.innerHTML = '';
+
+    try {
+        const res = await fetch(`/api/browse_files?folder_path=${encodeURIComponent(targetPath)}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+            if (subdirsContainer) subdirsContainer.innerHTML = `<div class="console-line error" style="grid-column: 1/-1;">Error: ${data.error || 'Failed to browse folder'}</div>`;
+            return;
+        }
+
+        if (pathInput) pathInput.value = data.current_dir || targetPath;
+
+        if (btnUp) {
+            btnUp.onclick = () => {
+                if (data.parent_dir) {
+                    loadFolderBrowserContent(data.parent_dir);
+                }
+            };
+            btnUp.disabled = !data.parent_dir || data.parent_dir === data.current_dir;
+        }
+
+        // 1. Render Subdirectories
+        if (subdirsContainer) {
+            subdirsContainer.innerHTML = '';
+            if (data.subdirs && data.subdirs.length > 0) {
+                data.subdirs.forEach(sub => {
+                    const item = document.createElement('div');
+                    item.className = 'browser-folder-item';
+                    item.title = `Open ${sub.name}`;
+                    item.innerHTML = `
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                        <span>${sub.name}</span>
+                    `;
+                    item.addEventListener('click', () => {
+                        loadFolderBrowserContent(sub.path);
+                    });
+                    subdirsContainer.appendChild(item);
+                });
+            } else {
+                subdirsContainer.innerHTML = '<div style="font-size:10px;color:var(--text-muted);grid-column:1/-1;">(No subdirectories)</div>';
+            }
+        }
+
+        // 2. Render Video Files
+        if (filesContainer) {
+            filesContainer.innerHTML = '';
+            if (data.videos && data.videos.length > 0) {
+                data.videos.forEach(vid => {
+                    const row = document.createElement('div');
+                    row.className = 'browser-video-row';
+                    row.innerHTML = `
+                        <div class="browser-video-name" title="${vid.path}">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            <span>${vid.name}</span>
+                            <span class="browser-video-meta">(${vid.size_mb} MB)</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <button class="btn-xs copy-path-btn" title="Copy file path">Copy Path</button>
+                            <button class="btn-xs btn-white select-video-btn" title="Load this video into editor">Load Video</button>
+                        </div>
+                    `;
+
+                    row.querySelector('.copy-path-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(vid.path);
+                        logExec(`Copied path to clipboard: ${vid.path}`, "success");
+                    });
+
+                    row.querySelector('.select-video-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        closeFolderBrowserModal();
+                        loadColabStream(vid.path);
+                    });
+
+                    row.addEventListener('click', () => {
+                        closeFolderBrowserModal();
+                        loadColabStream(vid.path);
+                    });
+
+                    filesContainer.appendChild(row);
+                });
+            } else {
+                filesContainer.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:8px 0;">No video files (.mp4, .mov, .mkv, .webm) in this folder.</div>';
+            }
+        }
+
+    } catch (err) {
+        if (subdirsContainer) subdirsContainer.innerHTML = `<div class="console-line error" style="grid-column:1/-1;">Network error browsing folder: ${err}</div>`;
     }
 }
 
@@ -450,10 +668,13 @@ function setGalleryPreviewVideo(item, shouldPlay = false) {
     if (placeholder) placeholder.style.display = 'none';
     player.style.display = 'block';
 
+    const qualSelect = document.getElementById('galleryQualitySelect');
+    const quality = qualSelect ? qualSelect.value : '480p';
+
     // Strict No-Autoplay: Stop playback, set source with cache-busting, preload metadata
     player.autoplay = false;
     player.pause();
-    const cleanUrl = `/api/exports/${encodeURIComponent(item.filename)}?t=${item.created_at || Date.now()}`;
+    const cleanUrl = `/api/exports/${encodeURIComponent(item.filename)}?quality=${quality}&t=${item.created_at || Date.now()}`;
     
     if (player.src !== cleanUrl && !player.src.endsWith(encodeURIComponent(item.filename))) {
         player.src = cleanUrl;
@@ -467,7 +688,7 @@ function setGalleryPreviewVideo(item, shouldPlay = false) {
         });
     }
 
-    logExec(`Loaded exported video into preview: ${item.filename}`, "info");
+    logExec(`Loaded exported video into preview (${quality.toUpperCase()}): ${item.filename}`, "info");
 }
 
 async function loadExportsGallery(targetFilename = null) {
@@ -608,6 +829,22 @@ function initHotkeys() {
         if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
             e.preventDefault();
             if (typeof redo === 'function') redo();
+            return;
+        }
+
+        // S: Toggle Magnetic Snapping
+        if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            if (typeof toggleMagneticSnap === 'function') toggleMagneticSnap();
+            return;
+        }
+
+        // Alt + Left / Alt + Right: Frame Nudge Active Caption
+        if (e.altKey && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
+            e.preventDefault();
+            const step = e.shiftKey ? 5 : 1;
+            const dir = e.code === 'ArrowLeft' ? -step : step;
+            if (typeof nudgeActiveClip === 'function') nudgeActiveClip(dir);
             return;
         }
 
@@ -985,8 +1222,72 @@ function initAppListeners() {
         });
     }
 
+    const previewQualSelect = document.getElementById('previewQualitySelect');
+    if (previewQualSelect) {
+        previewQualSelect.addEventListener('change', (e) => {
+            changePreviewQuality(e.target.value);
+        });
+    }
+
+    const folderVideosSelect = document.getElementById('folderVideosSelect');
+    if (folderVideosSelect) {
+        folderVideosSelect.addEventListener('change', (e) => {
+            if (e.target.value) {
+                loadColabStream(e.target.value);
+            }
+        });
+    }
+
+    const btnBrowseFolder = document.getElementById('btnBrowseFolder');
+    const btnCloseFolderBrowser = document.getElementById('btnCloseFolderBrowser');
+    const btnBrowserRefresh = document.getElementById('btnBrowserRefresh');
+    const browserPathInput = document.getElementById('browserCurrentPathInput');
+
+    if (btnBrowseFolder) {
+        btnBrowseFolder.addEventListener('click', () => openFolderBrowserModal());
+    }
+    if (btnCloseFolderBrowser) {
+        btnCloseFolderBrowser.addEventListener('click', closeFolderBrowserModal);
+    }
+    if (btnBrowserRefresh) {
+        btnBrowserRefresh.addEventListener('click', () => {
+            const cur = browserPathInput ? browserPathInput.value : '';
+            loadFolderBrowserContent(cur);
+        });
+    }
+    if (browserPathInput) {
+        browserPathInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                loadFolderBrowserContent(e.target.value.trim());
+            }
+        });
+    }
+
+    const galleryQualitySelect = document.getElementById('galleryQualitySelect');
+    if (galleryQualitySelect) {
+        galleryQualitySelect.addEventListener('change', () => {
+            if (currentGalleryActiveFilename) {
+                const player = document.getElementById('galleryVideoPlayer');
+                if (player) {
+                    const qual = galleryQualitySelect.value;
+                    const curTime = player.currentTime || 0;
+                    const wasPlaying = !player.paused;
+                    player.src = `/api/exports/${encodeURIComponent(currentGalleryActiveFilename)}?quality=${qual}&t=${Date.now()}`;
+                    player.load();
+                    player.onloadedmetadata = () => {
+                        player.currentTime = curTime;
+                        if (wasPlaying) player.play().catch(() => {});
+                    };
+                }
+            }
+        });
+    }
+
     if (btnLoadVideo && videoInput) {
         btnLoadVideo.addEventListener('click', () => loadColabStream(videoInput.value));
+        videoInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') loadColabStream(videoInput.value);
+        });
     }
 
     if (btnDriveDownload) {

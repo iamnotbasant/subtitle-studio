@@ -86,13 +86,13 @@ function parseSRTTime(timeStr) {
         const hrs = parseFloat(parts[0]) || 0;
         const mins = parseFloat(parts[1]) || 0;
         const secs = parseFloat(parts[2]) || 0;
-        return (hrs * 3600) + (mins * 60) + secs;
+        return parseFloat(((hrs * 3600) + (mins * 60) + secs).toFixed(3));
     } else if (parts.length === 2) {
         const mins = parseFloat(parts[0]) || 0;
         const secs = parseFloat(parts[1]) || 0;
-        return (mins * 60) + secs;
+        return parseFloat(((mins * 60) + secs).toFixed(3));
     } else {
-        return parseFloat(clean) || 0;
+        return parseFloat(parseFloat(clean).toFixed(3)) || 0;
     }
 }
 
@@ -100,7 +100,7 @@ function formatSRTTime(seconds) {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds - Math.floor(seconds)) * 1000);
+    const ms = Math.round((seconds - Math.floor(seconds)) * 1000);
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
 }
 
@@ -108,20 +108,28 @@ function formatVTTTime(seconds) {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds - Math.floor(seconds)) * 1000);
+    const ms = Math.round((seconds - Math.floor(seconds)) * 1000);
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
 }
 
 function parseSRT(srtText) {
     pushHistoryState();
-    const blocks = srtText.trim().replace(/\r\n/g, '\n').split(/\n\n+/);
+    // Strip UTF-8 BOM if present
+    const cleanText = srtText.replace(/^\uFEFF/, '').trim();
+    const blocks = cleanText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split(/\n\n+/);
     const parsed = [];
     
     blocks.forEach((block, idx) => {
-        const lines = block.split('\n');
+        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
         if (lines.length >= 2) {
-            const timeLineIdx = lines[0].includes('-->') ? 0 : 1;
-            if (lines[timeLineIdx] && lines[timeLineIdx].includes('-->')) {
+            let timeLineIdx = -1;
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].includes('-->')) {
+                    timeLineIdx = i;
+                    break;
+                }
+            }
+            if (timeLineIdx !== -1) {
                 const [startStr, endStr] = lines[timeLineIdx].split('-->');
                 const text = lines.slice(timeLineIdx + 1).join('\n').trim();
                 const randSuffix = Math.random().toString(36).substring(2, 7);
@@ -340,9 +348,9 @@ function renderCaptionsList() {
             <div class="card-header-row">
                 <span class="card-index-badge">#${index + 1}</span>
                 <div class="timestamp-inputs">
-                    <input type="text" class="time-input start-time" value="${item.start.toFixed(2)}" data-id="${item.id}">
+                    <input type="text" class="time-input start-time" value="${item.start.toFixed(3)}" data-id="${item.id}" title="Start Time (seconds/millis)">
                     <span class="time-arrow">➔</span>
-                    <input type="text" class="time-input end-time" value="${item.end.toFixed(2)}" data-id="${item.id}">
+                    <input type="text" class="time-input end-time" value="${item.end.toFixed(3)}" data-id="${item.id}" title="End Time (seconds/millis)">
                 </div>
                 <div class="card-actions-right">
                     <button class="card-add-below-btn" data-id="${item.id}" title="Insert subtitle below (#${index + 2})">
@@ -627,5 +635,4 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnUpper) btnUpper.addEventListener('click', () => convertAllCaptionsCase('upper'));
     if (btnTitle) btnTitle.addEventListener('click', () => convertAllCaptionsCase('title'));
     if (btnLower) btnLower.addEventListener('click', () => convertAllCaptionsCase('lower'));
-    if (btnAi) btnAi.addEventListener('click', autoGenerateAiCaptions);
 });

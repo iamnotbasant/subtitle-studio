@@ -154,24 +154,26 @@
 .timeline-clip {
     position: absolute;
     height: 32px;
-    background: #232329;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: var(--radius-sm);
+    background: #1c1c22;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
     cursor: grab;
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 0 4px;
+    justify-content: flex-start;
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
     overflow: hidden;
     transform: translate3d(0, 0, 0);
     will-change: transform, left, width;
     transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
 .timeline-clip:hover {
-    border-color: rgba(255, 255, 255, 0.4);
-    background: #2d2d35;
+    border-color: rgba(255, 255, 255, 0.45);
+    background: #25252e;
     z-index: 2;
 }
 
@@ -180,26 +182,26 @@
 }
 
 .timeline-clip.active {
-    border-color: #ffffff;
-    background: #373742;
-    box-shadow: 0 0 0 1px #ffffff, 0 3px 8px rgba(0, 0, 0, 0.6);
-    z-index: 3;
+    border-color: #38bdf8;
+    background: #2b2b36;
+    box-shadow: 0 0 0 1px #38bdf8, 0 2px 8px rgba(0, 0, 0, 0.7);
+    z-index: 5;
 }
 
-/* Overlapping Sub-Lane Clips (Distinct Accent) */
+/* Overlapping Sub-Lane Clips (Distinct Purple/Indigo Accent) */
 .timeline-clip.overlap-lane-clip {
-    background: linear-gradient(135deg, #1e1b4b, #2e1065);
-    border-color: rgba(168, 85, 247, 0.4);
+    background: #1e1b4b;
+    border-color: rgba(168, 85, 247, 0.5);
 }
 
 .timeline-clip.overlap-lane-clip:hover {
-    border-color: rgba(192, 132, 252, 0.7);
-    background: linear-gradient(135deg, #2e1065, #3b0764);
+    border-color: rgba(192, 132, 252, 0.8);
+    background: #2e1065;
 }
 
 .timeline-clip.overlap-lane-clip.active {
     border-color: #c084fc;
-    box-shadow: 0 0 0 1px #c084fc, 0 0 12px rgba(168, 85, 247, 0.4);
+    box-shadow: 0 0 0 1px #c084fc, 0 0 10px rgba(168, 85, 247, 0.5);
 }
 
 .clip-content {
@@ -207,17 +209,19 @@
     align-items: center;
     gap: 4px;
     width: 100%;
+    height: 100%;
     overflow: hidden;
     pointer-events: none;
-    padding: 0 4px;
+    padding: 0 8px;
+    box-sizing: border-box;
 }
 
 .clip-idx-tag {
     font-size: 8.5px;
     font-weight: 700;
     font-family: var(--font-mono);
-    background: rgba(255, 255, 255, 0.1);
-    color: #e4e4e7;
+    background: rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
     padding: 1px 3px;
     border-radius: 2px;
     flex-shrink: 0;
@@ -234,32 +238,55 @@
     flex: 1;
 }
 
-/* LEFT & RIGHT TRIM HANDLES */
+/* PREMIERE PRO STYLE TRIM HANDLES */
 .trim-handle {
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 7px;
-    background: rgba(255, 255, 255, 0.18);
+    width: 8px;
+    background: transparent;
     cursor: ew-resize;
-    transition: background var(--transition-fast);
-    z-index: 4;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+    z-index: 6;
 }
 
-.trim-handle:hover {
-    background: #ffffff;
+.trim-handle:hover,
+.trim-handle.active-trim {
+    background: rgba(56, 189, 248, 0.5);
+    box-shadow: inset 0 0 4px #38bdf8;
 }
 
 .trim-handle.left-handle {
     left: 0;
-    border-top-left-radius: var(--radius-sm);
-    border-bottom-left-radius: var(--radius-sm);
+    border-top-left-radius: 3px;
+    border-bottom-left-radius: 3px;
+}
+
+.trim-handle.left-handle:hover {
+    border-left: 2px solid #38bdf8;
 }
 
 .trim-handle.right-handle {
     right: 0;
-    border-top-right-radius: var(--radius-sm);
-    border-bottom-right-radius: var(--radius-sm);
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+.trim-handle.right-handle:hover {
+    border-right: 2px solid #38bdf8;
+}
+
+/* MAGNETIC SNAP GUIDELINE */
+.snap-guide-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #38bdf8;
+    box-shadow: 0 0 6px #38bdf8;
+    z-index: 15;
+    pointer-events: none;
+    animation: fadeIn 0.1s ease-out;
 }
 
 /* PLAYHEAD NEEDLE */

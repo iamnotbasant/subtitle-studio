@@ -67,12 +67,20 @@ class RenderRequest(BaseModel):
     style: RenderStyleProps
     custom_output_dir: Optional[str] = None
     google_drive_export_path: Optional[str] = None
+    export_filename: Optional[str] = None
     export_mp4: bool = True
     export_srt: bool = True
     export_xml: bool = True
 
 class AiCaptionRequest(BaseModel):
     video_path: Optional[str] = None
+
+class BatchScanRequest(BaseModel):
+    folder_path: str
+
+class ParseSrtRequest(BaseModel):
+    srt_path: Optional[str] = None
+    srt_content: Optional[str] = None
 
 def hex_to_ass_color(hex_str: str, opacity: float = 1.0) -> str:
     hex_clean = hex_str.lstrip("#")
@@ -100,10 +108,18 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
     play_res_x = res_x
     play_res_y = res_y
 
-    # Calculate scale factor relative to reference 1920 vertical sequence height
-    ref_y = 1920.0 if res_y >= res_x else 1080.0
-    scale_factor = res_y / ref_y
+    # Calculate scale factor relative to reference 1920 vertical sequence height (or 1080 horizontal / 1:1 square)
+    if res_y > res_x:
+        ref_x = 1080.0
+        ref_y = 1920.0
+    elif res_x > res_y:
+        ref_x = 1920.0
+        ref_y = 1080.0
+    else:
+        ref_x = float(res_x)
+        ref_y = float(res_y)
 
+    scale_factor = res_y / ref_y
     ass_font_size = max(12, round(style.fontSize * scale_factor))
 
     fill_op = style.primaryOpacity if style.fillEnabled else 0.0
@@ -159,7 +175,6 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
     pp_pos_x = style.posX if style.posX is not None else 0
     pp_pos_y = style.posY if style.posY is not None else 444
 
-    ref_x = 1080.0 if res_y >= res_x else 1920.0
     abs_x = round((play_res_x / 2.0) + (pp_pos_x * (play_res_x / ref_x)))
     abs_y = round((play_res_y / 2.0) + (pp_pos_y * (play_res_y / ref_y)))
 
@@ -210,66 +225,119 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
 
 def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequest):
     try:
+        # Determine structured local and custom/Drive output folders
+        local_video_dir = OUTPUT_DIR / "videos"
+        local_srt_dir = OUTPUT_DIR / "subtitles"
+        local_xml_dir = OUTPUT_DIR / "sequences"
+
+        local_video_dir.mkdir(parents=True, exist_ok=True)
+        local_srt_dir.mkdir(parents=True, exist_ok=True)
+        local_xml_dir.mkdir(parents=True, exist_ok=True)
+
+        dest_base_str = req.google_drive_export_path or req.custom_output_dir
+        dest_video_dir = None
+        dest_srt_dir = None
+        dest_xml_dir = None
+
+        if dest_base_str:
+            dest_base = Path(dest_base_str).resolve()
+            dest_video_dir = dest_base / "videos"
+            dest_srt_dir = dest_base / "subtitles"
+            dest_xml_dir = dest_base / "sequences"
+            dest_video_dir.mkdir(parents=True, exist_ok=True)
+            dest_srt_dir.mkdir(parents=True, exist_ok=True)
+            dest_xml_dir.mkdir(parents=True, exist_ok=True)
+
+        # Stage 1: Generate subtitle styles & ASS script
         update_render_progress(
             percent=5.0,
             status="Generating subtitle styles & ASS script...",
-            stage="Subtitles",
+            stage="Subtitle Engine",
             speed="1x",
             eta="Calculating..."
         )
         ass_path = TEMP_DIR / "render_temp.ass"
         generate_ass_script(video_path, caption_dicts, req.style, ass_path)
 
-        out_mp4_path = get_auto_versioned_path(video_path, ext=".mp4")
-        out_srt_path = out_mp4_path.with_suffix(".srt")
-        out_xml_path = out_mp4_path.with_suffix(".xml")
+        # Calculate auto-versioned output paths (clean stem first, then _v1, _v2 if collision exists)
+        if req.export_filename and req.export_filename.strip():
+            clean_stem = Path(req.export_filename.strip()).stem
+            out_srt_path = local_srt_dir / f"{clean_stem}.srt"
+        else:
+            out_srt_path = get_auto_versioned_path(video_path, ext=".srt", base_dir=local_srt_dir)
+            clean_stem = out_srt_path.stem
+        out_mp4_path = local_video_dir / f"{clean_stem}.mp4"
+        out_xml_path = local_xml_dir / f"{clean_stem}.xml"
 
+        # Step 2: Generate and save .SRT file FIRST as requested
         if req.export_srt:
             update_render_progress(
-                percent=10.0,
-                status="Generating .SRT subtitle file...",
-                stage="Subtitles"
+                percent=12.0,
+                status=f"Exporting .SRT subtitle file: {out_srt_path.name}...",
+                stage="SRT Export",
+                eta="1s"
             )
             generate_srt_file(caption_dicts, out_srt_path)
+            # Immediately copy to destination folder if configured
+            if out_srt_path.exists():
+                if dest_srt_dir:
+                    try:
+                        shutil.copy2(out_srt_path, dest_srt_dir / out_srt_path.name)
+                    except Exception as ce:
+                        print(f"Warning: Could not copy SRT to target folder: {ce}")
+                if dest_base and dest_base.exists() and dest_base != dest_srt_dir:
+                    try:
+                        shutil.copy2(out_srt_path, dest_base / out_srt_path.name)
+                    except Exception:
+                        pass
 
+        # Step 3: Generate Premiere Pro XML sequence
         if req.export_xml:
             update_render_progress(
-                percent=15.0,
-                status="Generating Premiere Pro XML sequence...",
-                stage="Sequence XML"
+                percent=18.0,
+                status=f"Generating Premiere Pro XML sequence: {out_xml_path.name}...",
+                stage="Sequence XML",
+                eta="1s"
             )
             generate_premiere_xml(video_path, caption_dicts, out_xml_path)
+            if out_xml_path.exists():
+                if dest_xml_dir:
+                    try:
+                        shutil.copy2(out_xml_path, dest_xml_dir / out_xml_path.name)
+                    except Exception as ce:
+                        print(f"Warning: Could not copy XML to target folder: {ce}")
+                if dest_base and dest_base.exists() and dest_base != dest_xml_dir:
+                    try:
+                        shutil.copy2(out_xml_path, dest_base / out_xml_path.name)
+                    except Exception:
+                        pass
 
+        # Step 4: Render Video with burned subtitles
         if req.export_mp4:
             duration = get_video_info(video_path)["duration"]
             success = render_ass_video(video_path, str(ass_path), out_mp4_path, duration)
             if not success:
                 return
+
+            if out_mp4_path.exists():
+                if dest_video_dir:
+                    try:
+                        shutil.copy2(out_mp4_path, dest_video_dir / out_mp4_path.name)
+                    except Exception as ce:
+                        print(f"Warning: Could not copy MP4 to target folder: {ce}")
+                if dest_base and dest_base.exists() and dest_base != dest_video_dir:
+                    try:
+                        shutil.copy2(out_mp4_path, dest_base / out_mp4_path.name)
+                    except Exception:
+                        pass
         else:
             # If MP4 burn was not selected, complete task now
             update_render_progress(
                 percent=100.0,
-                status="Export Completed Successfully",
+                status="Subtitle & XML Export Completed Successfully",
                 stage="Done",
                 eta="0s"
             )
-
-        dest_dir_str = req.google_drive_export_path or req.custom_output_dir
-        if dest_dir_str:
-            try:
-                dest_dir = Path(dest_dir_str).resolve()
-                dest_dir.mkdir(parents=True, exist_ok=True)
-
-                if req.export_mp4 and out_mp4_path.exists():
-                    shutil.copy2(out_mp4_path, dest_dir / out_mp4_path.name)
-
-                if req.export_srt and out_srt_path.exists():
-                    shutil.copy2(out_srt_path, dest_dir / out_srt_path.name)
-
-                if req.export_xml and out_xml_path.exists():
-                    shutil.copy2(out_xml_path, dest_dir / out_xml_path.name)
-            except Exception as e:
-                print(f"Warning: Failed to copy exports to custom/Drive destination path: {e}")
     except Exception as err:
         print(f"Error in async_render_job: {err}")
         update_render_progress(
@@ -416,20 +484,35 @@ def generate_ai_captions(req: AiCaptionRequest):
 @router.get("/list_exports")
 def list_exports():
     exports = []
+    seen_paths = set()
     if OUTPUT_DIR.exists():
-        for file in OUTPUT_DIR.glob("*.mp4"):
+        for file in sorted(OUTPUT_DIR.glob("**/*.mp4"), key=lambda f: f.stat().st_mtime, reverse=True):
+            resolved_str = str(file.resolve())
+            if resolved_str in seen_paths:
+                continue
+            seen_paths.add(resolved_str)
             try:
                 stat = file.stat()
                 size_mb = round(stat.st_size / (1024 * 1024), 2)
                 info = get_video_info(str(file))
+
+                # Check for srt in same folder or subtitles/ folder
+                srt_same = file.with_suffix(".srt")
+                srt_sub = OUTPUT_DIR / "subtitles" / f"{file.stem}.srt"
+                srt_exists = srt_same.exists() or srt_sub.exists()
+
+                xml_same = file.with_suffix(".xml")
+                xml_sub = OUTPUT_DIR / "sequences" / f"{file.stem}.xml"
+                xml_exists = xml_same.exists() or xml_sub.exists()
+
                 exports.append({
                     "filename": file.name,
-                    "path": str(file.resolve()),
+                    "path": resolved_str,
                     "size_mb": size_mb,
                     "duration": round(info["duration"], 2),
                     "created_at": int(stat.st_mtime),
-                    "srt_exists": file.with_suffix(".srt").exists(),
-                    "xml_exists": file.with_suffix(".xml").exists()
+                    "srt_exists": srt_exists,
+                    "xml_exists": xml_exists
                 })
             except Exception:
                 continue
@@ -438,10 +521,46 @@ def list_exports():
     return {"count": len(exports), "exports": exports}
 
 @router.get("/exports/{filename}")
-def stream_export_file(filename: str):
+def stream_export_file(filename: str, quality: str = "full"):
+    # Check direct in OUTPUT_DIR or inside videos/
     file_path = OUTPUT_DIR / filename
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail=f"Exported video '{filename}' not found.")
+        file_path = OUTPUT_DIR / "videos" / filename
+    if not file_path.exists():
+        # Search recursively
+        matches = list(OUTPUT_DIR.glob(f"**/{filename}"))
+        if matches:
+            file_path = matches[0]
+        else:
+            raise HTTPException(status_code=404, detail=f"Exported video '{filename}' not found.")
+
+    if quality and quality.lower() in ("480p", "360p", "720p", "fast"):
+        # Generate or serve proxy for fast preview
+        target_scale = "scale=-2:480" if quality in ("480p", "fast") else ("scale=-2:360" if quality == "360p" else "scale=-2:720")
+        proxy_name = f"gallery_proxy_{quality}_{file_path.stem}.mp4"
+        proxy_path = TEMP_DIR / proxy_name
+
+        if not proxy_path.exists() or proxy_path.stat().st_mtime < file_path.stat().st_mtime:
+            import subprocess
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", str(file_path.resolve()),
+                "-vf", target_scale,
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "27", "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                "-c:a", "aac", "-b:a", "96k",
+                str(proxy_path.resolve())
+            ]
+            try:
+                subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+                return FileResponse(
+                    str(proxy_path.resolve()),
+                    media_type="video/mp4",
+                    headers={"Accept-Ranges": "bytes", "Cache-Control": "public, max-age=3600"}
+                )
+            except Exception:
+                pass
+
     return FileResponse(
         str(file_path.resolve()),
         media_type="video/mp4",
@@ -450,3 +569,166 @@ def stream_export_file(filename: str):
             "Cache-Control": "no-cache, no-store, must-revalidate"
         }
     )
+
+def parse_srt_string_to_captions(srt_text: str) -> List[dict]:
+    """
+    Parses raw SRT subtitle text into a structured list of CaptionItem dictionaries.
+    """
+    import re
+    def parse_time(t_str: str) -> float:
+        t_clean = t_str.strip().replace(',', '.')
+        parts = t_clean.split(':')
+        if len(parts) == 3:
+            return float(parts[0]) * 3600 + float(parts[1]) * 60 + float(parts[2])
+        elif len(parts) == 2:
+            return float(parts[0]) * 60 + float(parts[1])
+        return float(parts[0])
+
+    blocks = re.split(r'\n\s*\n', srt_text.strip().replace('\r\n', '\n'))
+    captions = []
+    idx = 1
+    for block in blocks:
+        lines = [l.strip() for l in block.split('\n') if l.strip()]
+        if not lines:
+            continue
+        # Find line with timestamp arrow '-->'
+        time_idx = -1
+        for i, line in enumerate(lines):
+            if '-->' in line:
+                time_idx = i
+                break
+        if time_idx == -1:
+            continue
+
+        time_line = lines[time_idx]
+        parts = time_line.split('-->')
+        if len(parts) != 2:
+            continue
+
+        try:
+            start_s = parse_time(parts[0])
+            end_s = parse_time(parts[1])
+            text_lines = lines[time_idx + 1:]
+            text = ' '.join(text_lines)
+            if text:
+                captions.append({
+                    "id": f"cap_{idx}",
+                    "start": round(start_s, 2),
+                    "end": round(end_s, 2),
+                    "text": text
+                })
+                idx += 1
+        except Exception:
+            continue
+    return captions
+
+@router.post("/parse_srt")
+def parse_srt(req: ParseSrtRequest):
+    """
+    Parses SRT content from direct text string or file path on server.
+    """
+    content = req.srt_content or ""
+    if req.srt_path:
+        p = Path(req.srt_path).resolve()
+        if p.exists() and p.is_file():
+            try:
+                with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read()
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Failed to read SRT file: {str(e)}")
+        else:
+            raise HTTPException(status_code=404, detail=f"SRT file not found: {req.srt_path}")
+
+    if not content:
+        return {"captions": [], "count": 0}
+
+    captions = parse_srt_string_to_captions(content)
+    return {
+        "count": len(captions),
+        "captions": captions
+    }
+
+@router.post("/batch_scan_pairs")
+def batch_scan_pairs(req: BatchScanRequest):
+    """
+    Scans a folder for video files and SRT subtitle files, automatically pairing them by filename stem.
+    """
+    folder = Path(req.folder_path).resolve()
+    if not folder.exists() or not folder.is_dir():
+        raise HTTPException(status_code=404, detail=f"Directory not found: '{req.folder_path}'")
+
+    video_exts = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".flv", ".m4v"}
+    srt_exts = {".srt", ".vtt"}
+
+    video_files = []
+    srt_files = {}
+
+    try:
+        for item in sorted(folder.iterdir(), key=lambda e: e.name.lower()):
+            if item.is_file():
+                suf = item.suffix.lower()
+                if suf in video_exts:
+                    video_files.append(item)
+                elif suf in srt_exts:
+                    srt_files[item.stem.lower()] = item
+                    srt_files[item.name.lower()] = item
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to scan directory: {str(e)}")
+
+    pairs = []
+    for idx, vfile in enumerate(video_files, 1):
+        v_stem = vfile.stem.lower()
+        matched_srt = None
+        # Exact stem match
+        if v_stem in srt_files:
+            matched_srt = srt_files[v_stem]
+        else:
+            # Fuzzy match: e.g. v_stem + ".en" or starts with
+            for s_key, s_val in srt_files.items():
+                if s_key.startswith(v_stem) or v_stem.startswith(s_key):
+                    matched_srt = s_val
+                    break
+
+        info = get_video_info(str(vfile))
+        size_mb = round(vfile.stat().st_size / (1024 * 1024), 2)
+
+        captions_count = 0
+        if matched_srt:
+            try:
+                with open(matched_srt, "r", encoding="utf-8", errors="ignore") as sf:
+                    caps = parse_srt_string_to_captions(sf.read())
+                    captions_count = len(caps)
+            except Exception:
+                pass
+
+        pairs.append({
+            "id": f"batch_{idx}",
+            "video_path": str(vfile.resolve()),
+            "video_name": vfile.name,
+            "size_mb": size_mb,
+            "duration": round(info.get("duration", 0), 2),
+            "width": info.get("width", 1920),
+            "height": info.get("height", 1080),
+            "fps": round(info.get("fps", 30), 2),
+            "srt_path": str(matched_srt.resolve()) if matched_srt else None,
+            "srt_name": matched_srt.name if matched_srt else None,
+            "captions_count": captions_count,
+            "status": "ready" if matched_srt else "missing_srt"
+        })
+
+    all_srts = [{"name": s.name, "path": str(s.resolve())} for s in srt_files.values() if s.is_file()]
+    unique_srts = []
+    seen = set()
+    for s in all_srts:
+        if s["path"] not in seen:
+            seen.add(s["path"])
+            unique_srts.append(s)
+
+    return {
+        "folder": str(folder),
+        "total_videos": len(video_files),
+        "total_srts": len(unique_srts),
+        "pairs": pairs,
+        "available_srts": unique_srts
+    }
+

@@ -30,6 +30,7 @@
     <script src="js/captions.js" defer></script>
     <script src="js/properties.js" defer></script>
     <script src="js/timeline.js" defer></script>
+    <script src="js/batch.js" defer></script>
     <script src="js/app.js" defer></script>
 </head>
 <body class="apple-dark-theme">
@@ -42,7 +43,20 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="4" rx="3"/><path d="M6 9h12M6 13h7"/></svg>
                 </div>
                 <h1>Subtitle Studio <span class="pro-text">Pro</span></h1>
-                <span class="version-badge" id="appVersionBadge">v8.1.0</span>
+                <span class="version-badge" id="appVersionBadge">v8.2.0</span>
+            </div>
+
+            <!-- STUDIO MODE TOGGLE TABS (SINGLE STUDIO vs BULK STUDIO) -->
+            <div class="studio-mode-switcher">
+                <button id="btnModeSingle" class="mode-switch-btn active" title="Single Video Editor Studio">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="15" x="2" y="4" rx="3"/><path d="M6 9h12M6 13h7"/></svg>
+                    <span>Single Studio</span>
+                </button>
+                <button id="btnModeBulk" class="mode-switch-btn" title="Batch Caption Multiple Videos at Once">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    <span>Bulk Studio</span>
+                    <span class="badge-new-pill">NEW</span>
+                </button>
             </div>
             
             <div class="video-input-group">
@@ -50,13 +64,26 @@
                     <label for="videoPathInput">Video Path / URL:</label>
                     <input type="text" id="videoPathInput" placeholder="e.g. /content/my_video.mp4 or Drive Link">
                 </div>
+                
+                <!-- SIBLING FOLDER VIDEOS QUICK DROPDOWN -->
+                <div class="folder-videos-selector-box" id="folderVideosBox" style="display: none;">
+                    <label for="folderVideosSelect">Folder Videos:</label>
+                    <select id="folderVideosSelect" class="input-select-sm" title="Quickly switch videos in the current folder">
+                        <option value="" disabled selected>Select from folder...</option>
+                    </select>
+                </div>
+
+                <button id="btnBrowseFolder" class="btn btn-secondary" title="Open Folder Explorer / Video Browser">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    Browse Folder
+                </button>
                 <button id="btnLoadVideo" class="btn btn-secondary">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18l15-9L5 3z"/></svg>
-                    Load Video
+                    Load
                 </button>
                 <button id="btnDriveDownload" class="btn btn-secondary">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                    Google Drive Link
+                    Drive
                 </button>
             </div>
 
@@ -70,6 +97,17 @@
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
                     Redo
                 </button>
+            </div>
+
+            <!-- PREVIEW PLAYBACK QUALITY SELECTOR -->
+            <div class="preview-quality-selector-box">
+                <label for="previewQualitySelect">Preview:</label>
+                <select id="previewQualitySelect" class="input-select-sm" title="Preview Quality (Exports are always Full Resolution)">
+                    <option value="480p" selected>480p (Fast / Colab Smooth)</option>
+                    <option value="720p">720p (High)</option>
+                    <option value="full">Full (Original Source)</option>
+                    <option value="360p">360p (Ultra Fast)</option>
+                </select>
             </div>
 
             <!-- ASPECT RATIO SELECTOR -->
@@ -93,17 +131,17 @@
                     Gallery
                 </button>
                 <button id="btnExportRender" class="btn btn-primary">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2 stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                     Export Options
                 </button>
             </div>
         </header>
 
         <!-- MAIN 3-COLUMN STUDIO LAYOUT SYSTEM -->
-        <main class="workspace-grid">
+        <main class="workspace-grid single-mode-active" id="mainWorkspace">
             
             <!-- LEFT COLUMN: CAPTIONS MANAGER -->
-            <section class="panel captions-panel">
+            <section class="panel captions-panel" id="singleCaptionsPanel">
                 <div class="panel-header">
                     <h2>
                         <span class="panel-icon">
@@ -112,18 +150,14 @@
                         Captions
                     </h2>
                     <div class="panel-actions">
-                        <button id="btnAiCaptions" class="btn-sm btn-glow-purple" title="Auto-transcribe speech to subtitles with AI">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                            AI Transcribe
-                        </button>
                         <button id="btnImportSrt" class="btn-sm">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" x2="12" y1="18" y2="12"/><line x1="9" x2="15" y1="15" y2="15"/></svg>
-                            .SRT
+                            Import .SRT
                         </button>
                         <input type="file" id="srtFileInput" accept=".srt" style="display:none;">
                         <button id="btnAddCaption" class="btn-sm btn-white">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
-                            Add
+                            Add Line
                         </button>
                     </div>
                 </div>
@@ -139,10 +173,10 @@
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="11" y1="8" x2="11" y2="14"/></svg>
                             Find
                         </button>
-                        <button id="btnShiftMinus" class="btn-xs" title="Shift -0.5s">
+                        <button id="btnShiftMinus" class="btn-xs" title="Shift all captions -0.5s">
                             -0.5s
                         </button>
-                        <button id="btnShiftPlus" class="btn-xs" title="Shift +0.5s">
+                        <button id="btnShiftPlus" class="btn-xs" title="Shift all captions +0.5s">
                             +0.5s
                         </button>
                     </div>
@@ -184,7 +218,7 @@
             </section>
 
             <!-- MIDDLE COLUMN: DYNAMIC VIEWPORT & TIMELINE -->
-            <section class="panel preview-panel">
+            <section class="panel preview-panel" id="singlePreviewPanel">
                 <div class="panel-header">
                     <h2>
                         <span class="panel-icon">
@@ -193,6 +227,20 @@
                         Program Monitor
                     </h2>
                     <div class="timecode-display" id="timecodeDisplay">00:00:00:00</div>
+                </div>
+
+                <!-- BATCH INDIVIDUAL FINE-TUNE RETURN BANNER -->
+                <div class="batch-edit-banner" id="batchEditBanner" style="display: none;">
+                    <div class="banner-left">
+                        <span class="pulse-dot-sm"></span>
+                        <span class="banner-tag">INDIVIDUAL EDIT MODE</span>
+                        <strong id="batchEditBannerLabel">Fine-Tuning Video: "sample.mp4"</strong>
+                        <span class="banner-hint">(Edit captions/timings in timeline below)</span>
+                    </div>
+                    <div class="banner-actions">
+                        <button id="btnSaveReturnBatch" class="btn-xs btn-white">💾 Save & Return to Bulk</button>
+                        <button id="btnDiscardReturnBatch" class="btn-xs">✕ Discard</button>
+                    </div>
                 </div>
 
                 <!-- DYNAMIC ASPECT RATIO VIEWPORT CONTAINER WITH LOADING SPINNER & DRAG DROP -->
@@ -279,10 +327,20 @@
                 <div class="timeline-container" id="timelineContainer">
                     <div class="timeline-toolbar">
                         <div class="timeline-tools-left">
-                            <span class="toolbar-label">Timeline Tracks</span>
+                            <span class="toolbar-label">Tracks</span>
+                            <button id="btnToggleSnap" class="btn-xs active" title="Toggle Magnetic Snapping (S) - Snap to playhead and adjacent clips">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a6 6 0 0 0 12 0V3"/><line x1="4" y1="3" x2="8" y2="3"/><line x1="16" y1="3" x2="20" y2="3"/></svg>
+                                Snap
+                            </button>
+                            <button id="btnNudgeClipLeft" class="btn-xs" title="Nudge active clip -1 frame (Alt+Left)">
+                                ◀ -1f
+                            </button>
+                            <button id="btnNudgeClipRight" class="btn-xs" title="Nudge active clip +1 frame (Alt+Right)">
+                                +1f ▶
+                            </button>
                             <button id="btnSplitPlayhead" class="btn-xs" title="Cut/Split active subtitle clip at playhead time (Key: C or K)">
                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" x2="8.12" y1="4" y2="15.88"/><line x1="14.47" x2="20" y1="14.48" y2="20"/><line x1="8.12" x2="12" y1="8.12" y2="12"/></svg>
-                                Cut at Playhead
+                                Cut
                             </button>
                         </div>
                         <div class="zoom-controls">
@@ -308,8 +366,117 @@
                 </div>
             </section>
 
+            <!-- BULK STUDIO WORKSTATION PANEL (Visible when in Bulk Mode) -->
+            <section class="panel bulk-studio-panel" id="bulkStudioPanel" style="display: none;">
+                <!-- Top Bulk Toolbar Header -->
+                <div class="bulk-header-bar">
+                    <div class="bulk-title-group">
+                        <div class="bulk-icon-badge">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        </div>
+                        <div class="bulk-header-titles">
+                            <h2>Batch Video & Subtitle Pairing Studio</h2>
+                            <span class="bulk-sub-tag" id="batchStatsSummary">0 Videos in Queue</span>
+                        </div>
+                    </div>
+
+                    <div class="bulk-top-actions">
+                        <!-- Hidden inputs -->
+                        <input type="file" id="batchVideoFileInput" multiple accept="video/*,.mp4,.mov,.mkv,.avi,.webm" style="display:none;">
+                        <input type="file" id="batchSrtFileInput" multiple accept=".srt,.vtt" style="display:none;">
+
+                        <button id="btnBatchAddVideos" class="btn-sm btn-white" title="Select multiple video files from your computer">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                            Add Videos
+                        </button>
+                        <button id="btnBatchAddSrts" class="btn-sm" title="Upload multiple .SRT subtitle files to auto-match">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" x2="12" y1="18" y2="12"/><line x1="9" x2="15" y1="15" y2="15"/></svg>
+                            Add .SRT Files
+                        </button>
+                        <button id="btnBatchScanFolder" class="btn-sm" title="Browse a directory to auto-scan & pair video + SRT files">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                            Scan Folder Pairs
+                        </button>
+                        <button id="btnBatchAutoMatch" class="btn-sm" title="Auto-match all videos with available SRTs by filename stem">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            Auto-Match
+                        </button>
+                        <button id="btnBatchClear" class="btn-xs" title="Clear all batch items">
+                            Clear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Path Input & Dropzone Bar -->
+                <div class="batch-quick-bar">
+                    <div class="batch-path-input-group">
+                        <svg class="search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                        <input type="text" id="batchPathInput" placeholder="Enter folder path or video/SRT path (e.g. /content/reels or C:\Videos)..." class="pp-input-sm">
+                        <button id="btnBatchAddPath" class="btn-xs btn-white">Load Path</button>
+                    </div>
+                    <div class="batch-drop-hint" id="batchDropzone">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                        <span>Drag & drop multiple videos or .SRTs here</span>
+                    </div>
+                </div>
+
+                <!-- Batch Video-SRT Matrix Pairing Table Container -->
+                <div class="batch-table-container">
+                    <table class="batch-pairing-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 36px;">#</th>
+                                <th>Source Video (Left)</th>
+                                <th>Paired Subtitle .SRT (Right)</th>
+                                <th>Preview / Lines</th>
+                                <th style="width: 100px;">Status</th>
+                                <th style="width: 110px; text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batchTableBody">
+                            <!-- Dynamic Rows populated by batch.js -->
+                        </tbody>
+                    </table>
+
+                    <!-- Empty State Illustration -->
+                    <div class="batch-empty-state" id="batchEmptyState">
+                        <div class="empty-icon-circle">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect width="20" height="15" x="2" y="4" rx="2"/><path d="M12 9v6M9 12h6"/></svg>
+                        </div>
+                        <h3>No Videos in Batch Queue</h3>
+                        <p>Click <strong>Add Videos</strong> or <strong>Scan Folder Pairs</strong> above, or drag multiple video and .SRT files directly into this window.</p>
+                    </div>
+                </div>
+
+                <!-- Bottom Batch Export Controls Bar -->
+                <div class="batch-export-footer">
+                    <div class="batch-export-settings-row">
+                        <div class="batch-target-folder-box">
+                            <label for="batchCustomOutputDir">Target Export Folder:</label>
+                            <input type="text" id="batchCustomOutputDir" placeholder="Default (app /exports folder) or custom folder path..." class="pp-input-sm">
+                        </div>
+                        <div class="batch-format-checks">
+                            <label class="checkbox-label"><input type="checkbox" id="batchExportMp4" checked> Burned .MP4</label>
+                            <label class="checkbox-label"><input type="checkbox" id="batchExportSrt" checked> .SRT File</label>
+                            <label class="checkbox-label"><input type="checkbox" id="batchExportXml" checked> XML Sequence</label>
+                        </div>
+                    </div>
+                    
+                    <div class="batch-footer-action-row">
+                        <div class="batch-preservation-hint">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>Output files strictly preserve original video file names in sequence.</span>
+                        </div>
+                        <button id="btnBatchStartRender" class="btn btn-primary btn-glow" disabled>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            Start Sequential Batch Render (0 Videos)
+                        </button>
+                    </div>
+                </div>
+            </section>
+
             <!-- RIGHT COLUMN: ADOBE PREMIERE PRO PROPERTIES PANEL -->
-            <section class="panel properties-panel pp-dark-panel">
+            <section class="panel properties-panel pp-dark-panel" id="propertiesPanel">
                 
                 <!-- TOP PREMIERE PRO HEADER TABS -->
                 <div class="pp-panel-tabs">
@@ -340,6 +507,17 @@
                 </div>
 
                 <div class="properties-scroll-container">
+
+                    <!-- GLOBAL BATCH NOTICE (Visible in Bulk Mode) -->
+                    <div class="bulk-global-notice" id="bulkGlobalNotice" style="display: none;">
+                        <div class="notice-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        </div>
+                        <div class="notice-text">
+                            <strong>Global Batch Style Active</strong>
+                            <span>Presets, fonts, outer strokes, colors & positions apply to all batch videos.</span>
+                        </div>
+                    </div>
                     
                     <!-- ACCORDION 1: TRACK STYLE & PRESETS -->
                     <div class="pp-accordion-group">
@@ -750,12 +928,22 @@
                         </div>
                         <div>
                             <h3>Rendered Exports Gallery</h3>
-                            <p class="modal-subtitle">Preview, download, and manage rendered video clips</p>
+                            <p class="modal-subtitle">Preview, download, and manage your rendered videos & subtitle tracks</p>
                         </div>
                     </div>
-                    <button id="btnCloseGallery" class="btn-xs modal-close-btn">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="preview-quality-selector-box gallery-quality-box">
+                            <label for="galleryQualitySelect">Preview Quality:</label>
+                            <select id="galleryQualitySelect" class="input-select-sm" title="Preview Quality in Gallery">
+                                <option value="480p" selected>480p (Fast)</option>
+                                <option value="720p">720p (High)</option>
+                                <option value="full">Full Master (Original)</option>
+                            </select>
+                        </div>
+                        <button id="btnCloseGallery" class="btn-xs modal-close-btn">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- DASHBOARD EMBEDDED VIDEO PLAYER -->
@@ -768,7 +956,7 @@
                 </div>
 
                 <div class="gallery-section-title">
-                    <span>Exported Files</span>
+                    <span>Exported Files (Auto-Organized)</span>
                     <span id="galleryCountBadge" class="badge-num">0</span>
                 </div>
 
@@ -778,54 +966,194 @@
             </div>
         </div>
 
-        <!-- RENDER PROGRESS MODAL DIALOG -->
+        <!-- SLEEK POST-PRODUCTION WORKSTATION RENDER PROGRESS MODAL -->
         <div class="modal-overlay" id="renderModal" style="display: none;">
-            <div class="modal-card render-modal-card">
-                <div class="modal-title-row" style="justify-content: space-between;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div class="render-spinner-icon">
-                            <svg class="spin-animation" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>
+            <div class="modal-card pro-render-card">
+                <!-- Top Header with Workstation Status & Chip -->
+                <div class="render-header-row">
+                    <div class="render-title-group">
+                        <div class="render-pulse-indicator">
+                            <span class="pulse-dot"></span>
                         </div>
                         <div>
-                            <h3>Rendering Subtitles & Video</h3>
-                            <p class="modal-subtitle">Processing GPU-accelerated ASS subtitle stream</p>
+                            <h3 class="render-workstation-title">Video Render & Export Workstation</h3>
+                            <span class="render-sub-tag" id="renderEncoderChip">FFmpeg NVENC Hardware Accelerated</span>
                         </div>
                     </div>
-                    <span id="renderStageText" class="render-stage-badge">Stage 1/4</span>
+                    <span id="renderStageBadge" class="pro-stage-pill">INITIALIZING</span>
                 </div>
 
-                <!-- Big Percent and Status Display -->
-                <div class="render-hero-display">
-                    <div class="render-big-percent" id="renderProgressPercent">0%</div>
-                    <div class="render-status-text" id="renderStatusText">Initializing render engines...</div>
-                </div>
-
-                <!-- High Visual Polish Progress Bar -->
-                <div class="progress-bar-track">
-                    <div class="progress-bar-fill" id="renderProgressFill" style="width: 0%;">
-                        <div class="progress-bar-shimmer"></div>
+                <!-- Multi-Stage Stepper Pipeline -->
+                <div class="render-pipeline-stepper">
+                    <div class="pipeline-step active" id="stepSubtitles">
+                        <span class="step-num">1</span>
+                        <span class="step-label">Subtitles & SRT</span>
+                    </div>
+                    <div class="pipeline-connector"></div>
+                    <div class="pipeline-step" id="stepEncode">
+                        <span class="step-num">2</span>
+                        <span class="step-label">Video Encode</span>
+                    </div>
+                    <div class="pipeline-connector"></div>
+                    <div class="pipeline-step" id="stepFinalize">
+                        <span class="step-num">3</span>
+                        <span class="step-label">Export & Sync</span>
                     </div>
                 </div>
 
-                <!-- Detailed 3-Card Metrics Grid -->
-                <div class="render-metrics-grid">
-                    <div class="render-metric-item">
-                        <span class="metric-label">SPEED</span>
-                        <span class="metric-value" id="renderSpeedText">0x</span>
-                    </div>
-                    <div class="render-metric-item">
-                        <span class="metric-label">ETA</span>
-                        <span class="metric-value" id="renderEtaText">--</span>
-                    </div>
-                    <div class="render-metric-item">
-                        <span class="metric-label">FRAMES</span>
-                        <span class="metric-value" id="renderFramesText">--</span>
+                <!-- Hero Percentage & Status Display -->
+                <div class="render-progress-hero">
+                    <div class="render-pct-large" id="renderProgressPercent">0%</div>
+                    <div class="render-status-headline" id="renderStatusText">Preparing render pipeline...</div>
+                </div>
+
+                <!-- Precision Progress Track -->
+                <div class="pro-progress-track">
+                    <div class="pro-progress-fill" id="renderProgressFill" style="width: 0%;">
+                        <div class="pro-progress-glow-tip"></div>
                     </div>
                 </div>
 
+                <!-- 4-Metric Statistics Dashboard Grid -->
+                <div class="render-stat-grid-4">
+                    <div class="render-stat-card">
+                        <span class="stat-meta">SPEED</span>
+                        <span class="stat-val" id="renderSpeedText">0.0x</span>
+                    </div>
+                    <div class="render-stat-card">
+                        <span class="stat-meta">FRAMES</span>
+                        <span class="stat-val" id="renderFramesText">0 / 0</span>
+                    </div>
+                    <div class="render-stat-card">
+                        <span class="stat-meta">ETA REMAINING</span>
+                        <span class="stat-val" id="renderEtaText">--</span>
+                    </div>
+                    <div class="render-stat-card">
+                        <span class="stat-meta">ENCODE ENGINE</span>
+                        <span class="stat-val" id="renderStageText">Stage 1/4</span>
+                    </div>
+                </div>
+
+                <!-- Render Error Display -->
                 <div id="renderErrorBox" class="render-error-box" style="display: none;">
                     <span id="renderErrorMsg">Render error details</span>
                     <button id="btnDismissRenderError" class="btn btn-secondary btn-xs">Dismiss</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BATCH RENDER WORKSTATION PROGRESS MODAL -->
+        <div class="modal-overlay" id="batchRenderModal" style="display: none;">
+            <div class="modal-card pro-render-card batch-render-card">
+                <!-- Top Header with Workstation Status & Chip -->
+                <div class="render-header-row">
+                    <div class="render-title-group">
+                        <div class="render-pulse-indicator">
+                            <span class="pulse-dot"></span>
+                        </div>
+                        <div>
+                            <h3 class="render-workstation-title">Sequential Batch Render Workstation</h3>
+                            <span class="render-sub-tag" id="batchCurrentVideoTitle">Processing Queue...</span>
+                        </div>
+                    </div>
+                    <span id="batchQueueBadge" class="pro-stage-pill">BATCH ACTIVE</span>
+                </div>
+
+                <!-- Overall Queue Progress -->
+                <div class="batch-overall-section">
+                    <div class="batch-queue-meta-row">
+                        <span class="batch-queue-label">TOTAL QUEUE PROGRESS</span>
+                        <span class="batch-queue-val" id="batchOverallProgressText">0% Overall</span>
+                    </div>
+                    <div class="pro-progress-track">
+                        <div class="pro-progress-fill" id="batchOverallProgressFill" style="width: 0%; background: linear-gradient(90deg, #3b82f6, #22c55e);">
+                            <div class="pro-progress-glow-tip"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Video Progress Bar & Hero -->
+                <div class="render-progress-hero" style="margin-top: 14px;">
+                    <div class="render-pct-large" id="batchItemProgressPct">0%</div>
+                    <div class="render-status-headline" id="batchStatusText">Preparing active video encode...</div>
+                </div>
+
+                <!-- Active Video Precision Progress Track -->
+                <div class="pro-progress-track">
+                    <div class="pro-progress-fill" id="batchItemProgressFill" style="width: 0%;">
+                        <div class="pro-progress-glow-tip"></div>
+                    </div>
+                </div>
+
+                <!-- 4-Metric Statistics Dashboard Grid -->
+                <div class="render-stat-grid-4">
+                    <div class="render-stat-card">
+                        <span class="stat-meta">ENCODE SPEED</span>
+                        <span class="stat-val" id="batchSpeedText">0.0x</span>
+                    </div>
+                    <div class="render-stat-card">
+                        <span class="stat-meta">FRAMES</span>
+                        <span class="stat-val" id="batchFramesText">0 / 0</span>
+                    </div>
+                    <div class="render-stat-card">
+                        <span class="stat-meta">EST. REMAINING</span>
+                        <span class="stat-val" id="batchEtaText">--</span>
+                    </div>
+                    <div class="render-stat-card">
+                        <span class="stat-meta">FILE NAMING</span>
+                        <span class="stat-val" style="font-size: 11px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">Preserved Source</span>
+                    </div>
+                </div>
+
+                <div class="modal-actions-row" style="margin-top: 18px; justify-content: flex-end;">
+                    <button id="btnBatchDoneClose" class="btn btn-primary" style="display: none;" onclick="showBatchRenderModal(false)">
+                        ✓ Close & View in Batch Matrix
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- FOLDER EXPLORER & VIDEO BROWSER MODAL (WINDOWS EXPLORER STYLE) -->
+        <div class="modal-overlay" id="folderBrowserModal" style="display: none;">
+            <div class="modal-card folder-browser-card">
+                <div class="modal-title-row" style="justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="modal-icon-badge">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                        </div>
+                        <div>
+                            <h3>Folder Explorer</h3>
+                            <p class="modal-subtitle">Browse directories and select videos easily</p>
+                        </div>
+                    </div>
+                    <button id="btnCloseFolderBrowser" class="btn-xs modal-close-btn">✕</button>
+                </div>
+
+                <!-- Navigation Path Bar -->
+                <div class="browser-nav-bar">
+                    <button id="btnBrowserGoUp" class="btn-xs" title="Go up to parent directory">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+                        Up
+                    </button>
+                    <div class="browser-current-path-box">
+                        <input type="text" id="browserCurrentPathInput" class="browser-path-input" placeholder="/content/...">
+                    </div>
+                    <button id="btnBrowserRefresh" class="btn-xs" title="Refresh directory">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    </button>
+                </div>
+
+                <!-- Files and Folders List Container -->
+                <div class="browser-content-area" id="browserContentArea">
+                    <div class="browser-section-label">SUBFOLDERS</div>
+                    <div class="browser-subdirs-grid" id="browserSubdirsList">
+                        <!-- Subdirectories populated by app.js -->
+                    </div>
+
+                    <div class="browser-section-label" style="margin-top: 10px;">VIDEO CLIPS IN DIRECTORY</div>
+                    <div class="browser-files-list" id="browserFilesList">
+                        <!-- Video files populated by app.js -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -849,6 +1177,14 @@
                     <div class="shortcut-item">
                         <span class="shortcut-desc">Cut / Split Subtitle at Playhead</span>
                         <kbd>C</kbd> or <kbd>K</kbd>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-desc">Toggle Magnetic Snapping</span>
+                        <kbd>S</kbd>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-desc">Nudge Selected Clip -1f / +1f</span>
+                        <kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd>
                     </div>
                     <div class="shortcut-item">
                         <span class="shortcut-desc">Undo Last Action</span>

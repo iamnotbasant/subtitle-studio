@@ -1,6 +1,7 @@
 import os
 import subprocess
 from pathlib import Path
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -55,17 +56,100 @@ def check_video(req: CheckVideoRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to inspect video: {str(e)}")
 
-@router.get("/stream")
-def stream_video(video_path: str = Query(...)):
+@router.get("/browse_files")
+def browse_files(folder_path: Optional[str] = None):
     """
-    Generates/serves an ultra-fast H.264 YUV420p web proxy for 0-lag browser HTML5 playback.
-    Optimized with faststart, byte range caching, and low bitrate for Colab tunnels.
+    Lists subdirectories and video files for folder browser and quick-select dropdown.
+    """
+    video_extensions = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".flv", ".m4v", ".wmv"}
+    
+    if folder_path and folder_path.strip():
+        curr_dir = Path(folder_path.strip()).resolve()
+    else:
+        # Default to /content on Colab or current working directory
+        colab_content = Path("/content")
+        curr_dir = colab_content if colab_content.exists() else Path.cwd()
+
+    if not curr_dir.exists() or not curr_dir.is_dir():
+        curr_dir = curr_dir.parent if curr_dir.parent.exists() else Path.cwd()
+
+    parent_dir = str(curr_dir.parent.resolve()) if curr_dir.parent != curr_dir else None
+
+    subdirs = []
+    video_files = []
+
+    try:
+        for entry in sorted(curr_dir.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower())):
+            if entry.name.startswith(".") or entry.name in ("__pycache__", "node_modules", "temp"):
+                continue
+            if entry.is_dir():
+                subdirs.append({
+                    "name": entry.name,
+                    "path": str(entry.resolve()),
+                    "is_dir": True
+                })
+            elif entry.is_file() and entry.suffix.lower() in video_extensions:
+                try:
+                    stat = entry.stat()
+                    size_mb = round(stat.st_size / (1024 * 1024), 2)
+                    video_files.append({
+                        "name": entry.name,
+                        "path": str(entry.resolve()),
+                        "size_mb": size_mb,
+                        "is_dir": False
+                    })
+                except Exception:
+                    pass
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "current_dir": str(curr_dir),
+            "parent_dir": parent_dir,
+            "subdirs": [],
+            "video_files": []
+        }
+
+    return {
+        "success": True,
+        "current_dir": str(curr_dir),
+        "parent_dir": parent_dir,
+        "subdirs": subdirs,
+        "video_files": video_files
+    }
+
+@router.get("/stream")
+def stream_video(video_path: str = Query(...), quality: str = Query("480p")):
+    """
+    Generates/serves an adaptive H.264 YUV420p web proxy for 0-lag browser HTML5 playback.
+    Supports adjustable preview qualities: full (original), 720p, 480p (fast), 360p (ultra-fast).
     """
     source_path = Path(video_path).resolve()
     if not source_path.exists():
         raise HTTPException(status_code=404, detail=f"Source video file not found: '{video_path}'")
 
-    proxy_filename = f"web_proxy_v6_{source_path.stem}.mp4"
+    qual = (quality or "480p").lower().strip()
+    if qual in ("full", "original", "1080p"):
+        return FileResponse(
+            str(source_path),
+            media_type="video/mp4",
+            headers={
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "public, max-age=3600"
+            }
+        )
+
+    # Scale filters per selected preview quality
+    scale_filter = "scale=-2:480"
+    crf_val = "26"
+    if qual == "720p":
+        scale_filter = "scale=-2:720"
+        crf_val = "23"
+    elif qual == "360p":
+        scale_filter = "scale=-2:360"
+        crf_val = "28"
+
+    proxy_filename = f"web_proxy_{qual}_{source_path.stem}.mp4"
     proxy_path = TEMP_DIR / proxy_filename
 
     # If proxy doesn't exist or source file is newer, generate fast web-optimized proxy
@@ -73,8 +157,8 @@ def stream_video(video_path: str = Query(...)):
         cmd = [
             "ffmpeg", "-y",
             "-i", str(source_path),
-            "-vf", "scale=-2:480",  # Scale to 480p height for instant lag-free streaming
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "26", "-pix_fmt", "yuv420p",
+            "-vf", scale_filter,
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", crf_val, "-pix_fmt", "yuv420p",
             "-movflags", "+faststart",
             "-c:a", "aac", "-b:a", "96k",
             str(proxy_path.resolve())

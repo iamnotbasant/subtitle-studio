@@ -87,16 +87,27 @@ def get_video_info(video_path: Union[str, Path]) -> dict:
     except Exception:
         return {"width": 1920, "height": 1080, "fps": 30.0, "duration": get_video_duration_secs(clean_path), "has_audio": False}
 
-def get_auto_versioned_path(base_name: Union[str, Path], ext: str = ".mp4") -> Path:
+def get_auto_versioned_path(base_name: Union[str, Path], ext: str = ".mp4", base_dir: Optional[Union[str, Path]] = None) -> Path:
     """
-    Auto-increments file output path (e.g. video_v1.mp4, video_v2.mp4) if target exists.
+    Auto-increments file output path.
+    First tries original filename (e.g. video.mp4).
+    If it exists, auto-increments with _v1, _v2, etc. (e.g. video_v1.mp4, video_v2.mp4).
     """
+    target_dir = Path(base_dir).resolve() if base_dir else OUTPUT_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+
     clean_stem = re.sub(r"_v\d+$", "", Path(base_name).stem)
+    # First attempt: Original filename without any version suffix
+    target = target_dir / f"{clean_stem}{ext}"
+    if not target.exists():
+        return target
+
+    # If original file exists, start versioning: _v1, _v2, ...
     version = 1
-    target = OUTPUT_DIR / f"{clean_stem}_v{version}{ext}"
+    target = target_dir / f"{clean_stem}_v{version}{ext}"
     while target.exists():
         version += 1
-        target = OUTPUT_DIR / f"{clean_stem}_v{version}{ext}"
+        target = target_dir / f"{clean_stem}_v{version}{ext}"
     return target
 
 def generate_srt_file(captions: list, output_path: Path):
