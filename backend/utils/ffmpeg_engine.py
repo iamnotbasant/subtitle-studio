@@ -188,16 +188,21 @@ def generate_premiere_xml(video_path: Union[str, Path], captions: list, output_x
 
 def check_nvenc_support() -> bool:
     """
-    Checks whether NVIDIA NVENC hardware encoder is actively available.
+    Checks whether NVIDIA NVENC hardware encoder is actively available on this system.
+    Compatible with Colab T4/V100/A100 GPUs, Windows NVIDIA GPUs, and Linux CUDA servers.
     """
-    try:
-        res = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-f", "lavfi", "-i", "nullsrc=s=64x64:d=0.04", "-c:v", "h264_nvenc", "-f", "null", "-"],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=2
-        )
-        return res.returncode == 0
-    except Exception:
-        return False
+    test_commands = [
+        ["ffmpeg", "-hide_banner", "-f", "lavfi", "-i", "nullsrc=s=64x64:d=0.04", "-c:v", "h264_nvenc", "-f", "null", "-"],
+        ["ffmpeg", "-hide_banner", "-f", "lavfi", "-i", "nullsrc=s=64x64:d=0.04", "-c:v", "h264_nvenc", "-preset", "fast", "-f", "null", "-"]
+    ]
+    for cmd in test_commands:
+        try:
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=2)
+            if res.returncode == 0:
+                return True
+        except Exception:
+            pass
+    return False
 
 def parse_ffmpeg_timestamp(time_str: str) -> float:
     """
@@ -214,11 +219,11 @@ def parse_ffmpeg_timestamp(time_str: str) -> float:
         pass
     return 0.0
 
-def render_ass_video(video_path: Union[str, Path], ass_path: Union[str, Path], output_path: Path, duration: float) -> bool:
+def render_ass_video(video_path: Union[str, Path], ass_path: Union[str, Path], output_path: Path, duration: float, job_id: Optional[str] = None) -> bool:
     """
     Executes an adaptive, high-performance subtitle burn FFmpeg render pipeline:
-    - Auto-detects NVENC GPU acceleration or defaults smoothly to CPU libx264 Ultrafast.
-    - Accurately tracks real-time progress, encoding speed, frame counts, and ETA.
+    - Auto-detects NVENC GPU acceleration or defaults smoothly to multi-threaded CPU libx264 Ultrafast.
+    - Accurately tracks real-time progress, encoding speed, frame counts, and ETA per job.
     """
     clean_video_path = str(Path(video_path).resolve())
     escaped_ass = escape_ffmpeg_filter_path(ass_path)
@@ -238,48 +243,50 @@ def render_ass_video(video_path: Union[str, Path], ass_path: Union[str, Path], o
     if has_gpu:
         stages = [
             {
-                "name": "GPU NVENC (Fast + Audio Sync)",
-                "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_copy
+                "name": "GPU NVENC (Hardware Fast + Stream Copy)",
+                "args": ["-c:v", "h264_nvenc", "-preset", "fast", "-threads", "0", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_copy
             },
             {
-                "name": "GPU NVENC (Fast + AAC Audio)",
-                "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
+                "name": "GPU NVENC (Hardware Fast + AAC Audio)",
+                "args": ["-c:v", "h264_nvenc", "-preset", "fast", "-threads", "0", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
             },
             {
-                "name": "CPU libx264 (Ultrafast + Audio Copy)",
-                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_copy
+                "name": "GPU NVENC (p1 Preset + Stream Copy)",
+                "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-threads", "0", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_copy
             },
             {
-                "name": "CPU libx264 (Ultrafast + AAC Audio)",
-                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
+                "name": "CPU libx264 (Ultrafast Multi-Threaded)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-threads", "0", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
             }
         ]
     else:
         stages = [
             {
-                "name": "CPU libx264 (Ultrafast + Stream Copy)",
-                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_copy
+                "name": "CPU libx264 (Ultrafast Multi-Threaded + Stream Copy)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-threads", "0", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_copy
             },
             {
-                "name": "CPU libx264 (Ultrafast + AAC Audio)",
-                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
+                "name": "CPU libx264 (Ultrafast Multi-Threaded + AAC Audio)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-threads", "0", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
             },
             {
-                "name": "CPU libx264 (Veryfast + Safe Pixel Format)",
-                "args": ["-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
+                "name": "CPU libx264 (Veryfast Multi-Threaded + YUV420p)",
+                "args": ["-c:v", "libx264", "-preset", "veryfast", "-threads", "0", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
             },
             {
-                "name": "CPU libx264 (High Compatibility Baseline)",
-                "args": ["-c:v", "libx264", "-preset", "fast", "-profile:v", "baseline", "-level", "3.0", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
+                "name": "CPU libx264 (Baseline Safe Multi-Threaded)",
+                "args": ["-c:v", "libx264", "-preset", "fast", "-threads", "0", "-profile:v", "baseline", "-level", "3.0", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
             }
         ]
 
-    progress_file = TEMP_DIR / "ffmpeg_progress.txt"
-    log_file_path = TEMP_DIR / "ffmpeg_render.log"
+    jid_suffix = f"_{job_id}" if job_id else ""
+    progress_file = TEMP_DIR / f"ffmpeg_progress{jid_suffix}.txt"
+    log_file_path = TEMP_DIR / f"ffmpeg_render{jid_suffix}.log"
 
     for idx, stage in enumerate(stages, 1):
         stage_label = f"Stage {idx}/{len(stages)}: {stage['name']}"
         update_render_progress(
+            job_id=job_id,
             percent=0.0,
             status=f"Starting {stage['name']}...",
             stage=f"Stage {idx}/{len(stages)}",
@@ -389,6 +396,7 @@ def render_ass_video(video_path: Union[str, Path], ass_path: Union[str, Path], o
                             eta_str = f"{int(round(duration))}s"
 
                         update_render_progress(
+                            job_id=job_id,
                             percent=pct,
                             status=f"Rendering: {pct:.1f}% ({stage['name']})",
                             stage=f"Stage {idx}/{len(stages)}",
@@ -402,6 +410,7 @@ def render_ass_video(video_path: Union[str, Path], ass_path: Union[str, Path], o
 
             if process.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
                 update_render_progress(
+                    job_id=job_id,
                     percent=100.0,
                     status="Render Completed Successfully",
                     stage="Done",
@@ -417,6 +426,7 @@ def render_ass_video(video_path: Union[str, Path], ass_path: Union[str, Path], o
             continue
 
     update_render_progress(
+        job_id=job_id,
         percent=0,
         status="Render Failed Across Fallback Engines",
         stage="Failed",

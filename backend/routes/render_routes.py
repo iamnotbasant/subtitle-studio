@@ -223,125 +223,135 @@ def generate_ass_script(video_path: str, captions: List[dict], style: RenderStyl
     with open(ass_output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(ass_content))
 
-def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequest):
-    try:
-        # Determine structured local and custom/Drive output folders
-        local_video_dir = OUTPUT_DIR / "videos"
-        local_srt_dir = OUTPUT_DIR / "subtitles"
-        local_xml_dir = OUTPUT_DIR / "sequences"
+import uuid
 
-        local_video_dir.mkdir(parents=True, exist_ok=True)
-        local_srt_dir.mkdir(parents=True, exist_ok=True)
-        local_xml_dir.mkdir(parents=True, exist_ok=True)
+RENDER_EXECUTION_LOCK = threading.Lock()
 
-        custom_base = None
-        if req.custom_output_dir and str(req.custom_output_dir).strip():
-            custom_base = Path(str(req.custom_output_dir).strip()).resolve()
-            custom_base.mkdir(parents=True, exist_ok=True)
+def async_render_job(video_path: str, caption_dicts: List[dict], req: RenderRequest, job_id: str):
+    with RENDER_EXECUTION_LOCK:
+        try:
+            # Determine structured local and custom/Drive output folders
+            local_video_dir = OUTPUT_DIR / "videos"
+            local_srt_dir = OUTPUT_DIR / "subtitles"
+            local_xml_dir = OUTPUT_DIR / "sequences"
 
-        drive_base = None
-        if req.google_drive_export_path and str(req.google_drive_export_path).strip():
-            drive_base = Path(str(req.google_drive_export_path).strip()).resolve()
-            drive_base.mkdir(parents=True, exist_ok=True)
+            local_video_dir.mkdir(parents=True, exist_ok=True)
+            local_srt_dir.mkdir(parents=True, exist_ok=True)
+            local_xml_dir.mkdir(parents=True, exist_ok=True)
 
-        # Stage 1: Generate subtitle styles & ASS script
-        update_render_progress(
-            percent=5.0,
-            status="Generating subtitle styles & ASS script...",
-            stage="Subtitle Engine",
-            speed="1x",
-            eta="Calculating..."
-        )
-        ass_path = TEMP_DIR / "render_temp.ass"
-        generate_ass_script(video_path, caption_dicts, req.style, ass_path)
+            custom_base = None
+            if req.custom_output_dir and str(req.custom_output_dir).strip():
+                custom_base = Path(str(req.custom_output_dir).strip()).resolve()
+                custom_base.mkdir(parents=True, exist_ok=True)
 
-        # Calculate auto-versioned output paths (clean stem first, then _v1, _v2 if collision exists)
-        if req.export_filename and req.export_filename.strip():
-            clean_stem = Path(req.export_filename.strip()).stem
-            out_srt_path = local_srt_dir / f"{clean_stem}.srt"
-        else:
-            out_srt_path = get_auto_versioned_path(video_path, ext=".srt", base_dir=local_srt_dir)
-            clean_stem = out_srt_path.stem
-        out_mp4_path = local_video_dir / f"{clean_stem}.mp4"
-        out_xml_path = local_xml_dir / f"{clean_stem}.xml"
+            drive_base = None
+            if req.google_drive_export_path and str(req.google_drive_export_path).strip():
+                drive_base = Path(str(req.google_drive_export_path).strip()).resolve()
+                drive_base.mkdir(parents=True, exist_ok=True)
 
-        # Step 2: Generate and save .SRT file FIRST as requested
-        if req.export_srt:
+            # Stage 1: Generate subtitle styles & ASS script
             update_render_progress(
-                percent=12.0,
-                status=f"Exporting .SRT subtitle file: {out_srt_path.name}...",
-                stage="SRT Export",
-                eta="1s"
+                job_id=job_id,
+                percent=5.0,
+                status="Generating subtitle styles & ASS script...",
+                stage="Subtitle Engine",
+                speed="1x",
+                eta="Calculating..."
             )
-            generate_srt_file(caption_dicts, out_srt_path)
-            # Copy to custom or drive folders if configured
-            if out_srt_path.exists():
-                if custom_base and custom_base.exists():
-                    try:
-                        shutil.copy2(out_srt_path, custom_base / out_srt_path.name)
-                    except Exception as ce:
-                        print(f"Warning: Could not copy SRT to custom folder: {ce}")
-                if drive_base and drive_base.exists():
-                    try:
-                        shutil.copy2(out_srt_path, drive_base / out_srt_path.name)
-                    except Exception as de:
-                        print(f"Warning: Could not copy SRT to Google Drive: {de}")
+            ass_path = TEMP_DIR / f"render_{job_id}.ass"
+            generate_ass_script(video_path, caption_dicts, req.style, ass_path)
 
-        # Step 3: Generate Premiere Pro XML sequence
-        if req.export_xml:
+            # Calculate auto-versioned output paths (clean stem first, then _v1, _v2 if collision exists)
+            if req.export_filename and req.export_filename.strip():
+                clean_stem = Path(req.export_filename.strip()).stem
+                out_srt_path = local_srt_dir / f"{clean_stem}.srt"
+            else:
+                out_srt_path = get_auto_versioned_path(video_path, ext=".srt", base_dir=local_srt_dir)
+                clean_stem = out_srt_path.stem
+            out_mp4_path = local_video_dir / f"{clean_stem}.mp4"
+            out_xml_path = local_xml_dir / f"{clean_stem}.xml"
+
+            # Step 2: Generate and save .SRT file FIRST as requested
+            if req.export_srt:
+                update_render_progress(
+                    job_id=job_id,
+                    percent=12.0,
+                    status=f"Exporting .SRT subtitle file: {out_srt_path.name}...",
+                    stage="SRT Export",
+                    eta="1s"
+                )
+                generate_srt_file(caption_dicts, out_srt_path)
+                # Copy to custom or drive folders if configured
+                if out_srt_path.exists():
+                    if custom_base and custom_base.exists():
+                        try:
+                            shutil.copy2(out_srt_path, custom_base / out_srt_path.name)
+                        except Exception as ce:
+                            print(f"Warning: Could not copy SRT to custom folder: {ce}")
+                    if drive_base and drive_base.exists():
+                        try:
+                            shutil.copy2(out_srt_path, drive_base / out_srt_path.name)
+                        except Exception as de:
+                            print(f"Warning: Could not copy SRT to Google Drive: {de}")
+
+            # Step 3: Generate Premiere Pro XML sequence
+            if req.export_xml:
+                update_render_progress(
+                    job_id=job_id,
+                    percent=18.0,
+                    status=f"Generating Premiere Pro XML sequence: {out_xml_path.name}...",
+                    stage="Sequence XML",
+                    eta="1s"
+                )
+                generate_premiere_xml(video_path, caption_dicts, out_xml_path)
+                if out_xml_path.exists():
+                    if custom_base and custom_base.exists():
+                        try:
+                            shutil.copy2(out_xml_path, custom_base / out_xml_path.name)
+                        except Exception as ce:
+                            print(f"Warning: Could not copy XML to custom folder: {ce}")
+                    if drive_base and drive_base.exists():
+                        try:
+                            shutil.copy2(out_xml_path, drive_base / out_xml_path.name)
+                        except Exception as de:
+                            print(f"Warning: Could not copy XML to Google Drive: {de}")
+
+            # Step 4: Render Video with burned subtitles
+            if req.export_mp4:
+                duration = get_video_info(video_path)["duration"]
+                success = render_ass_video(video_path, str(ass_path), out_mp4_path, duration, job_id=job_id)
+                if not success:
+                    return
+
+                if out_mp4_path.exists():
+                    if custom_base and custom_base.exists():
+                        try:
+                            shutil.copy2(out_mp4_path, custom_base / out_mp4_path.name)
+                        except Exception as ce:
+                            print(f"Warning: Could not copy MP4 to custom folder: {ce}")
+                    if drive_base and drive_base.exists():
+                        try:
+                            shutil.copy2(out_mp4_path, drive_base / out_mp4_path.name)
+                        except Exception as de:
+                            print(f"Warning: Could not copy MP4 to Google Drive: {de}")
+            else:
+                # If MP4 burn was not selected, complete task now
+                update_render_progress(
+                    job_id=job_id,
+                    percent=100.0,
+                    status="Subtitle & XML Export Completed Successfully",
+                    stage="Done",
+                    eta="0s"
+                )
+        except Exception as err:
+            print(f"Error in async_render_job: {err}")
             update_render_progress(
-                percent=18.0,
-                status=f"Generating Premiere Pro XML sequence: {out_xml_path.name}...",
-                stage="Sequence XML",
-                eta="1s"
+                job_id=job_id,
+                percent=0.0,
+                status=f"Export failed: {err}",
+                stage="Failed",
+                error=str(err)
             )
-            generate_premiere_xml(video_path, caption_dicts, out_xml_path)
-            if out_xml_path.exists():
-                if custom_base and custom_base.exists():
-                    try:
-                        shutil.copy2(out_xml_path, custom_base / out_xml_path.name)
-                    except Exception as ce:
-                        print(f"Warning: Could not copy XML to custom folder: {ce}")
-                if drive_base and drive_base.exists():
-                    try:
-                        shutil.copy2(out_xml_path, drive_base / out_xml_path.name)
-                    except Exception as de:
-                        print(f"Warning: Could not copy XML to Google Drive: {de}")
-
-        # Step 4: Render Video with burned subtitles
-        if req.export_mp4:
-            duration = get_video_info(video_path)["duration"]
-            success = render_ass_video(video_path, str(ass_path), out_mp4_path, duration)
-            if not success:
-                return
-
-            if out_mp4_path.exists():
-                if custom_base and custom_base.exists():
-                    try:
-                        shutil.copy2(out_mp4_path, custom_base / out_mp4_path.name)
-                    except Exception as ce:
-                        print(f"Warning: Could not copy MP4 to custom folder: {ce}")
-                if drive_base and drive_base.exists():
-                    try:
-                        shutil.copy2(out_mp4_path, drive_base / out_mp4_path.name)
-                    except Exception as de:
-                        print(f"Warning: Could not copy MP4 to Google Drive: {de}")
-        else:
-            # If MP4 burn was not selected, complete task now
-            update_render_progress(
-                percent=100.0,
-                status="Subtitle & XML Export Completed Successfully",
-                stage="Done",
-                eta="0s"
-            )
-    except Exception as err:
-        print(f"Error in async_render_job: {err}")
-        update_render_progress(
-            percent=0.0,
-            status=f"Export failed: {err}",
-            stage="Failed",
-            error=str(err)
-        )
 
 @router.post("/render")
 def trigger_render(req: RenderRequest):
@@ -349,21 +359,33 @@ def trigger_render(req: RenderRequest):
     if not path_obj.exists():
         raise HTTPException(status_code=404, detail=f"Source video path does not exist: '{req.video_path}'")
 
-    reset_render_progress()
+    job_id = f"job_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}"
+    reset_render_progress(job_id=job_id)
     caption_dicts = [c.dict() for c in req.captions]
 
-    thread = threading.Thread(target=async_render_job, args=(str(path_obj), caption_dicts, req), daemon=True)
+    thread = threading.Thread(target=async_render_job, args=(str(path_obj), caption_dicts, req, job_id), daemon=True)
     thread.start()
 
     return {
         "status": "Started",
+        "job_id": job_id,
         "message": "Render task initiated successfully.",
         "video_path": str(path_obj)
     }
 
 @router.get("/render_progress")
-def render_progress():
-    return get_render_progress()
+def render_progress(job_id: Optional[str] = None):
+    prog = get_render_progress()
+    if job_id and prog.get("job_id") and prog.get("job_id") != job_id:
+        return {
+            "job_id": job_id,
+            "percent": 0.0,
+            "status": "Waiting in sequential render queue...",
+            "stage": "Queued",
+            "speed": "0x",
+            "eta": "Queued..."
+        }
+    return prog
 
 @router.get("/presets")
 def get_style_presets():

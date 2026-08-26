@@ -23,6 +23,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # Global Render Progress State & Thread Lock
 _progress_lock = threading.Lock()
 GLOBAL_RENDER_PROGRESS = {
+    "job_id": None,
     "percent": 0.0,
     "status": "Ready",
     "stage": "Idle",
@@ -33,8 +34,10 @@ GLOBAL_RENDER_PROGRESS = {
     "error": None
 }
 
-def update_render_progress(percent=None, status=None, stage=None, current_frame=None, total_frames=None, speed=None, eta=None, error=None):
+def update_render_progress(job_id=None, percent=None, status=None, stage=None, current_frame=None, total_frames=None, speed=None, eta=None, error=None):
     with _progress_lock:
+        if job_id is not None:
+            GLOBAL_RENDER_PROGRESS["job_id"] = str(job_id)
         if percent is not None:
             GLOBAL_RENDER_PROGRESS["percent"] = round(float(percent), 2)
         if status is not None:
@@ -56,13 +59,14 @@ def get_render_progress():
     with _progress_lock:
         return dict(GLOBAL_RENDER_PROGRESS)
 
-def reset_render_progress():
+def reset_render_progress(job_id=None):
     with _progress_lock:
+        GLOBAL_RENDER_PROGRESS["job_id"] = str(job_id) if job_id else None
         GLOBAL_RENDER_PROGRESS["percent"] = 0.0
-        GLOBAL_RENDER_PROGRESS["status"] = "Ready"
-        GLOBAL_RENDER_PROGRESS["stage"] = "Idle"
+        GLOBAL_RENDER_PROGRESS["status"] = "Initializing render pipeline..."
+        GLOBAL_RENDER_PROGRESS["stage"] = "Initializing"
         GLOBAL_RENDER_PROGRESS["current_frame"] = 0
         GLOBAL_RENDER_PROGRESS["total_frames"] = 0
         GLOBAL_RENDER_PROGRESS["speed"] = "0x"
-        GLOBAL_RENDER_PROGRESS["eta"] = "0s"
+        GLOBAL_RENDER_PROGRESS["eta"] = "Calculating..."
         GLOBAL_RENDER_PROGRESS["error"] = None

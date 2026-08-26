@@ -851,13 +851,11 @@ async function executeNextBatchRenderJob() {
             body: JSON.stringify(payload)
         });
 
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.detail || "Render rejected by server");
-        }
+        const renderRes = await res.json();
+        const jobId = renderRes.job_id;
 
-        // Poll progress for this specific job
-        pollBatchItemProgress(currentItem, itemIndex, totalCount);
+        // Poll progress for this specific job ID
+        pollBatchItemProgress(currentItem, itemIndex, totalCount, jobId);
     } catch (err) {
         logExec(`[Batch ${itemIndex}/${totalCount}] Failed: ${err.message}`, "error");
         currentItem.status = 'failed';
@@ -869,12 +867,20 @@ async function executeNextBatchRenderJob() {
     }
 }
 
-function pollBatchItemProgress(currentItem, itemIndex, totalCount) {
+function pollBatchItemProgress(currentItem, itemIndex, totalCount, jobId) {
+    let pollCount = 0;
     const pollInterval = setInterval(async () => {
+        pollCount++;
         try {
-            const res = await fetch('/api/render_progress');
+            const queryUrl = jobId ? `/api/render_progress?job_id=${encodeURIComponent(jobId)}` : '/api/render_progress';
+            const res = await fetch(queryUrl);
             if (!res.ok) return;
             const data = await res.json();
+
+            // Ignore progress reports from stale/other jobs
+            if (jobId && data.job_id && data.job_id !== jobId) {
+                return;
+            }
 
             const pctVal = Math.min(100, Math.max(0, parseFloat(data.percent || 0)));
             currentItem.progress = Math.round(pctVal);
@@ -889,14 +895,14 @@ function pollBatchItemProgress(currentItem, itemIndex, totalCount) {
                 rowPill.innerHTML = `<span class="pulse-dot-sm"></span> ${Math.round(pctVal)}%`;
             }
 
-            if (data.percent >= 100 && (data.stage === 'Done' || data.stage === 'Export' || (data.status && data.status.includes('completed')))) {
+            if (pctVal >= 100 && (data.stage === 'Done' || data.stage === 'Export' || (data.status && data.status.includes('Completed')))) {
                 clearInterval(pollInterval);
                 currentItem.status = 'completed';
                 currentItem.progress = 100;
                 logExec(`[Batch ${itemIndex}/${totalCount}] Completed successfully: ${currentItem.videoName}`, "success");
                 renderBatchTable();
                 batchState.currentRenderIndex++;
-                setTimeout(executeNextBatchRenderJob, 800);
+                setTimeout(executeNextBatchRenderJob, 600);
             } else if (data.stage === 'Failed' || data.error) {
                 clearInterval(pollInterval);
                 currentItem.status = 'failed';
