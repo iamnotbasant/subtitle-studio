@@ -589,6 +589,13 @@ function initPropertiesListeners() {
         });
     }
 
+    if (container && typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => {
+            requestApplyStyling();
+        });
+        ro.observe(container);
+    }
+
     window.addEventListener('resize', requestApplyStyling);
 
     applyStyling();

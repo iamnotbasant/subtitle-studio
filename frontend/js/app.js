@@ -1108,6 +1108,7 @@ function toggleShortcutsModal() {
 function initDragAndDrop() {
     const wrapper = document.getElementById('viewportWrapper');
     const overlay = document.getElementById('dragDropOverlay');
+    const spinner = document.getElementById('videoLoadingSpinner');
     if (!wrapper || !overlay) return;
 
     ['dragenter', 'dragover'].forEach(eventName => {
@@ -1126,32 +1127,70 @@ function initDragAndDrop() {
         }, false);
     });
 
-    wrapper.addEventListener('drop', (e) => {
+    wrapper.addEventListener('drop', async (e) => {
         const files = e.dataTransfer.files;
         if (!files || files.length === 0) return;
 
         const file = files[0];
         const ext = file.name.split('.').pop().toLowerCase();
+        const isNativeBrowserDecodable = ['mp4', 'webm', 'mov'].includes(ext);
 
-        if (['mp4', 'mov', 'mkv', 'webm', 'avi'].includes(ext)) {
-            const blobUrl = URL.createObjectURL(file);
+        if (['mp4', 'mov', 'mkv', 'webm', 'avi', 'flv', 'wmv'].includes(ext)) {
             const video = document.getElementById('mainVideoPlayer');
             const videoInput = document.getElementById('videoPathInput');
             if (videoInput) videoInput.value = file.name;
-            currentLoadedVideoPath = file.name;
-            if (video) {
+
+            // If natively decodable, load instant local blob preview for 0-lag UX
+            if (isNativeBrowserDecodable && video) {
+                const blobUrl = URL.createObjectURL(file);
                 video.src = blobUrl;
                 video.load();
                 video.onloadedmetadata = () => {
-                    logExec(`Loaded dropped video directly: ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`, "success");
+                    logExec(`Previewing dropped video: ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`, "success");
                     soundEngine.success();
                     updateTimeReadouts();
                     if (typeof renderTimelineTrack === 'function') renderTimelineTrack();
                     if (typeof updatePlayheadPosition === 'function') updatePlayheadPosition();
                     if (typeof requestUpdateLiveSubtitleOverlay === 'function') requestUpdateLiveSubtitleOverlay();
                 };
+            } else if (spinner) {
+                spinner.style.display = 'flex';
+                const txt = spinner.querySelector('.spinner-text');
+                if (txt) txt.textContent = `Uploading ${file.name} to studio server...`;
             }
-        } else if (ext === 'srt') {
+
+            // Upload video to server in background so server path exists for export & stream proxy
+            logExec(`Uploading dropped video "${file.name}" to server for export & rendering...`, "info");
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const uRes = await fetch('/api/upload_media', {
+                    method: 'POST',
+                    body: formData
+                });
+                const uData = await uRes.json();
+                if (uRes.ok && uData.success) {
+                    currentLoadedVideoPath = uData.saved_path;
+                    if (videoInput) videoInput.value = uData.saved_path;
+                    logExec(`Video uploaded & verified on server: ${uData.filename} (${uData.size_mb} MB)`, "success");
+
+                    // If non-native format (MKV, AVI, FLV, WMV), load server proxy stream
+                    if (!isNativeBrowserDecodable) {
+                        loadColabStream(uData.saved_path);
+                    } else {
+                        populateFolderVideosDropdown(uData.saved_path);
+                    }
+                } else {
+                    logExec(`Warning: Video upload failed: ${uData.detail || 'Unknown error'}`, "warn");
+                }
+            } catch (upErr) {
+                logExec(`Video server sync error: ${upErr.message}`, "error");
+            } finally {
+                if (!isNativeBrowserDecodable && spinner) spinner.style.display = 'none';
+            }
+
+        } else if (ext === 'srt' || ext === 'vtt') {
             const reader = new FileReader();
             reader.onload = (evt) => {
                 captionsData = parseSRT(evt.target.result);

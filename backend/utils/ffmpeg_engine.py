@@ -32,15 +32,17 @@ def get_video_duration_secs(video_path: Union[str, Path]) -> float:
         clean_path
     ]
     try:
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
-        return float(res.stdout.strip())
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+        dur_str = res.stdout.strip()
+        if dur_str and dur_str != "N/A":
+            return max(0.0, float(dur_str))
     except Exception as e:
         print(f"Error getting video duration for '{clean_path}': {e}")
-        return 0.0
+    return 0.0
 
-def check_has_audio(video_path: Union[str, Path]) -> bool:
+def check_has_audio(video_path: Union[str, Path]) -> dict:
     """
-    Checks if source video contains an active audio stream.
+    Checks if source video contains an active audio stream and retrieves audio codec.
     """
     clean_path = str(Path(video_path).resolve())
     cmd = [
@@ -52,16 +54,23 @@ def check_has_audio(video_path: Union[str, Path]) -> bool:
         clean_path
     ]
     try:
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
-        return bool(res.stdout.strip())
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=6)
+        codec = res.stdout.strip().lower()
+        has_audio = bool(codec and codec != "n/a")
+        return {"has_audio": has_audio, "codec": codec if has_audio else None}
     except Exception:
-        return False
+        return {"has_audio": False, "codec": None}
 
 def get_video_info(video_path: Union[str, Path]) -> dict:
     """
     Retrieves video resolution, frame rate, duration, and audio presence.
     """
     clean_path = str(Path(video_path).resolve())
+    width = 1920
+    height = 1080
+    fps = 30.0
+    duration = 0.0
+
     cmd = [
         "ffprobe",
         "-v", "error",
@@ -71,21 +80,37 @@ def get_video_info(video_path: Union[str, Path]) -> dict:
         clean_path
     ]
     try:
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
         parts = res.stdout.strip().split(",")
-        width = int(parts[0]) if len(parts) > 0 and parts[0] else 1920
-        height = int(parts[1]) if len(parts) > 1 and parts[1] else 1080
-        fps_str = parts[2] if len(parts) > 2 and parts[2] else "30/1"
-        if "/" in fps_str:
-            num, den = fps_str.split("/")
-            fps = float(num) / float(den) if float(den) != 0 else 30.0
-        else:
-            fps = float(fps_str)
-        duration = float(parts[3]) if len(parts) > 3 and parts[3] else get_video_duration_secs(clean_path)
-        has_audio = check_has_audio(clean_path)
-        return {"width": width, "height": height, "fps": fps, "duration": duration, "has_audio": has_audio}
+        if len(parts) > 0 and parts[0].strip().isdigit():
+            width = int(parts[0].strip())
+        if len(parts) > 1 and parts[1].strip().isdigit():
+            height = int(parts[1].strip())
+        if len(parts) > 2 and parts[2].strip():
+            fps_str = parts[2].strip()
+            if "/" in fps_str:
+                num, den = fps_str.split("/")
+                if float(den) != 0:
+                    fps = float(num) / float(den)
+            elif fps_str != "N/A":
+                fps = float(fps_str)
+        if len(parts) > 3 and parts[3].strip() and parts[3].strip() != "N/A":
+            duration = float(parts[3].strip())
     except Exception:
-        return {"width": 1920, "height": 1080, "fps": 30.0, "duration": get_video_duration_secs(clean_path), "has_audio": False}
+        pass
+
+    if duration <= 0:
+        duration = get_video_duration_secs(clean_path)
+
+    audio_info = check_has_audio(clean_path)
+    return {
+        "width": width,
+        "height": height,
+        "fps": max(1.0, fps),
+        "duration": max(0.0, duration),
+        "has_audio": audio_info["has_audio"],
+        "audio_codec": audio_info["codec"]
+    }
 
 def get_auto_versioned_path(base_name: Union[str, Path], ext: str = ".mp4", base_dir: Optional[Union[str, Path]] = None) -> Path:
     """
@@ -224,6 +249,7 @@ def render_ass_video(video_path: Union[str, Path], ass_path: Union[str, Path], o
     Executes an adaptive, high-performance subtitle burn FFmpeg render pipeline:
     - Auto-detects NVENC GPU acceleration or defaults smoothly to multi-threaded CPU libx264 Ultrafast.
     - Accurately tracks real-time progress, encoding speed, frame counts, and ETA per job.
+    - Guaranteed universal compatibility with -pix_fmt yuv420p and smart audio fallback.
     """
     clean_video_path = str(Path(video_path).resolve())
     escaped_ass = escape_ffmpeg_filter_path(ass_path)
@@ -233,49 +259,58 @@ def render_ass_video(video_path: Union[str, Path], ass_path: Union[str, Path], o
     fps = info.get("fps") or 30.0
     total_frames = int(round((duration or info.get("duration") or 0.0) * fps))
     has_audio = info.get("has_audio", True)
+    audio_codec = info.get("audio_codec")
 
     has_gpu = check_nvenc_support()
 
-    # Build audio arguments based on whether audio track exists
-    audio_copy = ["-c:a", "copy"] if has_audio else ["-an"]
-    audio_aac = ["-c:a", "aac", "-b:a", "192k"] if has_audio else ["-an"]
+    # Build audio arguments: If audio exists, encode to standard AAC (or copy if already aac)
+    if has_audio:
+        if audio_codec == "aac":
+            audio_primary = ["-c:a", "copy"]
+            audio_fallback = ["-c:a", "aac", "-b:a", "192k"]
+        else:
+            audio_primary = ["-c:a", "aac", "-b:a", "192k"]
+            audio_fallback = ["-c:a", "aac", "-b:a", "128k"]
+    else:
+        audio_primary = ["-an"]
+        audio_fallback = ["-an"]
 
     if has_gpu:
         stages = [
             {
-                "name": "GPU NVENC (Hardware Fast + Stream Copy)",
-                "args": ["-c:v", "h264_nvenc", "-preset", "fast", "-threads", "0", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_copy
+                "name": "GPU NVENC (Hardware Fast + High Quality)",
+                "args": ["-c:v", "h264_nvenc", "-preset", "fast", "-pix_fmt", "yuv420p", "-threads", "0", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_primary
             },
             {
                 "name": "GPU NVENC (Hardware Fast + AAC Audio)",
-                "args": ["-c:v", "h264_nvenc", "-preset", "fast", "-threads", "0", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
+                "args": ["-c:v", "h264_nvenc", "-preset", "fast", "-pix_fmt", "yuv420p", "-threads", "0", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_fallback
             },
             {
-                "name": "GPU NVENC (p1 Preset + Stream Copy)",
-                "args": ["-c:v", "h264_nvenc", "-preset", "p1", "-threads", "0", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_copy
+                "name": "CPU libx264 (Ultrafast Multi-Threaded + YUV420p)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-threads", "0", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_primary
             },
             {
-                "name": "CPU libx264 (Ultrafast Multi-Threaded)",
-                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-threads", "0", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
+                "name": "CPU libx264 (Safe Multi-Threaded)",
+                "args": ["-c:v", "libx264", "-preset", "veryfast", "-threads", "0", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_fallback
             }
         ]
     else:
         stages = [
             {
-                "name": "CPU libx264 (Ultrafast Multi-Threaded + Stream Copy)",
-                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-threads", "0", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_copy
+                "name": "CPU libx264 (Ultrafast Multi-Threaded + YUV420p)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-threads", "0", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_primary
             },
             {
-                "name": "CPU libx264 (Ultrafast Multi-Threaded + AAC Audio)",
-                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-threads", "0", "-crf", "20", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
+                "name": "CPU libx264 (Ultrafast Multi-Threaded + AAC Fallback)",
+                "args": ["-c:v", "libx264", "-preset", "ultrafast", "-threads", "0", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_fallback
             },
             {
                 "name": "CPU libx264 (Veryfast Multi-Threaded + YUV420p)",
-                "args": ["-c:v", "libx264", "-preset", "veryfast", "-threads", "0", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
+                "args": ["-c:v", "libx264", "-preset", "veryfast", "-threads", "0", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_fallback
             },
             {
                 "name": "CPU libx264 (Baseline Safe Multi-Threaded)",
-                "args": ["-c:v", "libx264", "-preset", "fast", "-threads", "0", "-profile:v", "baseline", "-level", "3.0", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_aac
+                "args": ["-c:v", "libx264", "-preset", "fast", "-threads", "0", "-profile:v", "baseline", "-level", "3.0", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vf", f"subtitles='{escaped_ass}':fontsdir='{escaped_custom_fonts}'"] + audio_fallback
             }
         ]
 

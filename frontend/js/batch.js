@@ -222,13 +222,13 @@ async function handleBatchPathAdd(inputPath) {
     logExec(`Could not resolve path as video or SRT: ${inputPath}`, "error");
 }
 
-function handleBatchVideoFilesSelect(e) {
+async function handleBatchVideoFilesSelect(e) {
     const files = Array.from(e.target.files);
     if (!files || files.length === 0) return;
 
-    files.forEach(file => {
+    for (let file of files) {
         const sizeMb = parseFloat((file.size / (1024 * 1024)).toFixed(2));
-        addSingleVideoToBatch({
+        const item = {
             videoPath: file.name,
             videoName: file.name,
             fileObject: file,
@@ -237,8 +237,21 @@ function handleBatchVideoFilesSelect(e) {
             width: 1080,
             height: 1920,
             fps: 30
-        });
-    });
+        };
+        addSingleVideoToBatch(item);
+
+        // Upload in background to sync server path
+        const formData = new FormData();
+        formData.append('file', file);
+        fetch('/api/upload_media', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const batchItem = batchState.items.find(i => i.videoName === file.name);
+                    if (batchItem) batchItem.videoPath = data.saved_path;
+                }
+            }).catch(() => {});
+    }
 
     logExec(`Added ${files.length} video files to batch queue.`, "success");
     e.target.value = '';
@@ -828,6 +841,22 @@ async function executeNextBatchRenderJob() {
         itemCaps = [
             { id: "cap_1", start: 0.5, end: 3.5, text: "Automated Subtitle Sequence" }
         ];
+    }
+
+    // If item was added via local file dialog or drag/drop and hasn't finished uploading to server, upload now
+    if (currentItem.fileObject && (!currentItem.videoPath.includes('/') && !currentItem.videoPath.includes('\\'))) {
+        logExec(`[Batch ${itemIndex}/${totalCount}] Uploading "${currentItem.videoName}" to studio server before rendering...`, "info");
+        const formData = new FormData();
+        formData.append('file', currentItem.fileObject);
+        try {
+            const uRes = await fetch('/api/upload_media', { method: 'POST', body: formData });
+            const uData = await uRes.json();
+            if (uRes.ok && uData.success) {
+                currentItem.videoPath = uData.saved_path;
+            }
+        } catch (upErr) {
+            logExec(`Upload failed: ${upErr.message}`, "error");
+        }
     }
 
     const payload = {

@@ -5,7 +5,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -13,6 +13,7 @@ from config import TEMP_DIR, OUTPUT_DIR, CUSTOM_FONTS_DIR, get_render_progress, 
 from backend.utils.font_parser import resolve_ass_font_name
 from backend.utils.ffmpeg_engine import (
     get_video_info,
+    check_has_audio,
     get_auto_versioned_path,
     generate_srt_file,
     generate_premiere_xml,
@@ -576,7 +577,8 @@ def list_exports():
     return {"count": len(exports), "exports": exports}
 
 @router.get("/exports/{filename}")
-def stream_export_file(filename: str, quality: str = "full"):
+def stream_export_file(request: Request, filename: str, quality: str = "full"):
+    from backend.routes.stream_routes import range_stream_response
     # Check direct in OUTPUT_DIR or inside videos/
     file_path = OUTPUT_DIR / filename
     if not file_path.exists():
@@ -595,35 +597,26 @@ def stream_export_file(filename: str, quality: str = "full"):
         proxy_name = f"gallery_proxy_{quality}_{file_path.stem}.mp4"
         proxy_path = TEMP_DIR / proxy_name
 
-        if not proxy_path.exists() or proxy_path.stat().st_mtime < file_path.stat().st_mtime:
+        if not proxy_path.exists() or proxy_path.stat().st_size == 0 or proxy_path.stat().st_mtime < file_path.stat().st_mtime:
             import subprocess
+            audio_info = check_has_audio(str(file_path.resolve()))
+            audio_args = ["-c:a", "aac", "-b:a", "96k"] if audio_info.get("has_audio") else ["-an"]
+
             cmd = [
                 "ffmpeg", "-y",
                 "-i", str(file_path.resolve()),
                 "-vf", target_scale,
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "27", "-pix_fmt", "yuv420p",
-                "-movflags", "+faststart",
-                "-c:a", "aac", "-b:a", "96k",
-                str(proxy_path.resolve())
-            ]
+                "-c:v", "libx264", "-preset", "ultrafast", "-tune", "fastdecode", "-crf", "27", "-pix_fmt", "yuv420p",
+                "-threads", "0",
+                "-movflags", "+faststart"
+            ] + audio_args + [str(proxy_path.resolve())]
             try:
                 subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-                return FileResponse(
-                    str(proxy_path.resolve()),
-                    media_type="video/mp4",
-                    headers={"Accept-Ranges": "bytes", "Cache-Control": "public, max-age=3600"}
-                )
+                return range_stream_response(proxy_path, request, media_type="video/mp4")
             except Exception:
                 pass
 
-    return FileResponse(
-        str(file_path.resolve()),
-        media_type="video/mp4",
-        headers={
-            "Accept-Ranges": "bytes",
-            "Cache-Control": "no-cache, no-store, must-revalidate"
-        }
-    )
+    return range_stream_response(file_path, request, media_type="video/mp4")
 
 def parse_srt_string_to_captions(srt_text: str) -> List[dict]:
     """

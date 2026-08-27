@@ -222,7 +222,8 @@ function splitCaptionLine(id) {
     if (idx === -1) return;
 
     const cap = captionsData[idx];
-    const midTime = parseFloat(((cap.start + cap.end) / 2.0).toFixed(2));
+    const origEnd = cap.end;
+    const midTime = parseFloat(((cap.start + origEnd) / 2.0).toFixed(2));
     const words = cap.text.split(' ');
     const halfIndex = Math.ceil(words.length / 2);
     const text1 = words.slice(0, halfIndex).join(' ') || cap.text;
@@ -232,9 +233,9 @@ function splitCaptionLine(id) {
     cap.text = text1;
 
     const newCap = {
-        id: `cap_${Date.now()}`,
+        id: `cap_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
         start: midTime,
-        end: cap.end + 2.0,
+        end: origEnd,
         text: text2
     };
 
